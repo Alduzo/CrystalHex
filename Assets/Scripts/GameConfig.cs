@@ -16,4 +16,12 @@ public class GameConfig : ScriptableObject
 
     [Header("Debug Options")]
     public bool enableDebugLabels = true;
+
+    [Header("Modifier Tile Settings (as percentages)")]
+
+    [Header("Modifier Tile Settings (as percentages)")]
+    [Range(0f, 1f)] public float slowTilePercent = 0.05f;
+    [Range(0f, 1f)] public float fastTilePercent = 0.05f;
+
+
 }

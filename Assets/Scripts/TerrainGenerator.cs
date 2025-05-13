@@ -6,7 +6,7 @@ public class TerrainGenerator : MonoBehaviour
     [Header("References")]
     public GameObject hexPrefab;
     public GameConfig config;
-    public Material[] terrainMaterials; // [0] = base, [1] = slow (/2), [2] = fast (x2)
+    public Material[] terrainMaterials; // [0]=base, [1]=slow, [2]=fast, [3-6]=visual variation
 
     private Dictionary<Vector2Int, GameObject> tileMap = new();
     private float perlinScale = 0.1f;
@@ -30,32 +30,12 @@ public class TerrainGenerator : MonoBehaviour
             {
                 Vector2Int coord = new Vector2Int(x, y);
                 if (!tileMap.ContainsKey(coord))
-                {
                     CreateTile(coord);
-                }
             }
         }
-        AssignAllNeighbors(); // ✅ Agrega esta línea aquí
-    }
 
-    public void TryExpandFrom(Vector2Int center)
-    {
-        int expansionRadius = 1;
-
-        for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
-        {
-            for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
-            {
-                Vector2Int neighbor = new Vector2Int(center.x + dx, center.y + dy);
-                if (!tileMap.ContainsKey(neighbor) &&
-                    Mathf.Abs(neighbor.x) <= config.maxX &&
-                    Mathf.Abs(neighbor.y) <= config.maxY &&
-                    tileMap.Count < config.maxTiles)
-                {
-                    CreateTile(neighbor);
-                }
-            }
-        }
+        AssignAllNeighbors();
+        ApplyRandomGrowthModifiers(); // ✅ Llamamos esta función una vez después de crear todo
     }
 
     private void CreateTile(Vector2Int coord)
@@ -75,41 +55,82 @@ public class TerrainGenerator : MonoBehaviour
         {
             behavior.gridX = coord.x;
             behavior.gridY = coord.y;
+            behavior.growthMultiplier = 1f; // ✅ Valor por defecto
 
+            // Perlin Noise solo para visuales
             float noiseX = (coord.x + seedOffsetX) * perlinScale;
             float noiseY = (coord.y + seedOffsetY) * perlinScale;
             float noise = Mathf.PerlinNoise(noiseX, noiseY);
-            float multiplier = 1f;
+
             int matIndex = 0;
-
-            // Ajustar probabilidad de aparición y reducir clústers grandes
-            if (noise > 0.82f && Random.value < 0.4f)
-            {
-                multiplier = 2f;
-                matIndex = 2; // crecimiento rápido
-            }
-            else if (noise < 0.18f && Random.value < 0.4f)
-            {
-                multiplier = 0.5f;
-                matIndex = 1; // crecimiento lento
-            }
-
-
-            behavior.growthMultiplier = multiplier;
+            if (terrainMaterials.Length > 3)
+                matIndex = Mathf.FloorToInt(noise * (terrainMaterials.Length - 3)) + 3;
 
             MeshRenderer renderer = hexObj.GetComponent<MeshRenderer>();
-            if (renderer != null && terrainMaterials != null && matIndex < terrainMaterials.Length)
-            {
+            if (renderer != null && matIndex < terrainMaterials.Length)
                 renderer.material = terrainMaterials[matIndex];
-            }
+        }
+    }
+    public void TryExpandFrom(Vector2Int center)
+    {
+        int expansionRadius = 1;
 
-            if (config != null && config.enableDebugLabels && multiplier != 1f)
+        for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
+        {
+            for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
             {
-                CreateLabel(worldPos, $"x{multiplier}");
+                Vector2Int neighbor = new Vector2Int(center.x + dx, center.y + dy);
+                if (!tileMap.ContainsKey(neighbor) &&
+                    Mathf.Abs(neighbor.x) <= config.maxX &&
+                    Mathf.Abs(neighbor.y) <= config.maxY &&
+                    tileMap.Count < config.maxTiles)
+                {
+                    CreateTile(neighbor);
+                }
             }
+        }
 
-            // 👇 Asignar vecinos correctamente
-            AssignNeighbors(behavior, coord);
+        AssignAllNeighbors(); // Asegura vecinos correctos tras expansión
+    }
+
+    private void ApplyRandomGrowthModifiers()
+    {
+        int totalTiles = tileMap.Count;
+        int slowCount = Mathf.RoundToInt(totalTiles * config.slowTilePercent / 100f);
+        int fastCount = Mathf.RoundToInt(totalTiles * config.fastTilePercent / 100f);
+
+        AssignRandomModifiers(slowCount, 0.5f, 1); // Material index 1 = slow
+        AssignRandomModifiers(fastCount, 2f, 2);    // Material index 2 = fast
+    }
+
+    private void AssignRandomModifiers(int count, float multiplier, int matIndex)
+    {
+        List<Vector2Int> coords = new List<Vector2Int>(tileMap.Keys);
+        int placed = 0;
+
+        while (placed < count && coords.Count > 0)
+        {
+            int index = Random.Range(0, coords.Count);
+            Vector2Int coord = coords[index];
+            coords.RemoveAt(index);
+
+            GameObject hex = tileMap[coord];
+            if (hex == null) continue;
+
+            HexBehavior behavior = hex.GetComponent<HexBehavior>();
+            if (behavior != null && behavior.growthMultiplier == 1f)
+            {
+                behavior.growthMultiplier = multiplier;
+
+                MeshRenderer renderer = hex.GetComponent<MeshRenderer>();
+                if (renderer != null && terrainMaterials.Length > matIndex)
+                    renderer.material = terrainMaterials[matIndex];
+
+                if (config.enableDebugLabels)
+                    CreateLabel(hex.transform.position, $"x{multiplier}");
+
+                placed++;
+            }
         }
     }
 
@@ -132,21 +153,18 @@ public class TerrainGenerator : MonoBehaviour
         foreach (Vector2Int dir in directions)
         {
             Vector2Int neighborCoord = coord + dir;
-
             if (tileMap.TryGetValue(neighborCoord, out GameObject neighborGO))
             {
                 HexBehavior neighbor = neighborGO.GetComponent<HexBehavior>();
                 if (neighbor != null)
                 {
-                    if (!newHex.neighbors.Contains(neighbor))
-                        newHex.neighbors.Add(neighbor);
-
-                    if (!neighbor.neighbors.Contains(newHex))
-                        neighbor.neighbors.Add(newHex);
+                    if (!newHex.neighbors.Contains(neighbor)) newHex.neighbors.Add(neighbor);
+                    if (!neighbor.neighbors.Contains(newHex)) neighbor.neighbors.Add(newHex);
                 }
             }
         }
     }
+
     private void AssignAllNeighbors()
     {
         foreach (var kvp in tileMap)
@@ -154,12 +172,9 @@ public class TerrainGenerator : MonoBehaviour
             Vector2Int coord = kvp.Key;
             HexBehavior hex = kvp.Value.GetComponent<HexBehavior>();
             if (hex != null)
-            {
                 AssignNeighbors(hex, coord);
-            }
         }
     }
-
 
     private void CreateLabel(Vector3 position, string text)
     {
