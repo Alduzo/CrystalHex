@@ -12,10 +12,10 @@ public class HexGridLayout : MonoBehaviour
 
     private HexBehavior[,] hexGrid;
 
-    private void Start()
-    {
-        GenerateGrid();
-    }
+    //private void Start()
+   // {
+     //   GenerateGrid();
+    //}
 
     public void GenerateGrid()
     {
