@@ -2,15 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class HexBehavior : MonoBehaviour
-{
-    public enum HexState { Empty, Influenced, Seeded, Growing, Full }
+public enum HexState { Empty, Influenced, Seeded, Growing, Full }
     public enum PlayerType { Red, Blue, Green, Yellow, Purple, Orange }
 
     public enum CrystalType { Red, Blue, Green, Yellow, Purple, Orange }
 
     public enum CrystalSubtype {
-        Red1, Red2, Red3,
+        Red1, Red2, Red3, 
         Blue1, Blue2, Blue3,
         Green1, Green2, Green3,
         Yellow1, Yellow2, Yellow3,
@@ -18,6 +16,12 @@ public class HexBehavior : MonoBehaviour
         Orange1, Orange2, Orange3
     }
 
+
+
+public class HexBehavior : MonoBehaviour
+{
+    [SerializeField] private Material crystalBaseMaterial;
+    
     public HexState state = HexState.Empty;
     public CrystalType? crystalType = null;
     public CrystalSubtype? crystalSubtype = null;
@@ -27,17 +31,17 @@ public class HexBehavior : MonoBehaviour
     public List<HexBehavior> neighbors = new();
 
     private HexRenderer hexRenderer;
+    private CrystalMesh crystalMesh;
 
     private int ticksRemaining = -1;
     private bool isProgressing = false;
 
     public Dictionary<CrystalType, int> influenceMap = new();
     public int influenceAmount = 0;
-
     public int influenceThreshold = 2;
 
     [Header("Crystal Growth")]
-    public float growthMultiplier = 1f; // Default, adjusted by terrain
+    public float growthMultiplier = 1f;
 
     public static Dictionary<CrystalType, PlayerType> crystalToPlayer = new()
     {
@@ -49,9 +53,28 @@ public class HexBehavior : MonoBehaviour
         { CrystalType.Orange, PlayerType.Orange }
     };
 
+    public static Color GetColorForCrystal(CrystalType type)
+    {
+        return type switch
+        {
+            CrystalType.Red => Color.red,
+            CrystalType.Blue => Color.cyan,
+            CrystalType.Green => Color.green,
+            CrystalType.Yellow => new Color(1f, 1f, 0.2f),
+            CrystalType.Purple => new Color(0.6f, 0f, 0.6f),
+            CrystalType.Orange => new Color(1f, 0.5f, 0f),
+            _ => Color.white
+        };
+    }
+
+
     private void Awake()
     {
         hexRenderer = GetComponent<HexRenderer>();
+        crystalMesh = GetComponentInChildren<CrystalMesh>();
+
+        // Asegura que los visuales estén ocultos al iniciar
+        crystalMesh?.Clear();
     }
 
     private void Start()
@@ -66,10 +89,19 @@ public class HexBehavior : MonoBehaviour
         {
             crystalType = CrystalSelectorUI.Instance?.selectedCrystal ?? CrystalType.Red;
             state = HexState.Seeded;
-            hexRenderer.SetColor(GetColorForCrystal(crystalType.Value));
+        
+
+            // Mostrar visual del cristal
+            if (crystalType.HasValue)
+            {
+                crystalMesh?.SetColor(crystalBaseMaterial, GetColorForCrystal(crystalType.Value));
+                crystalMesh?.ShowState(state);
+            }
 
             var terrainGen = GameObject.FindFirstObjectByType<TerrainGenerator>();
             terrainGen?.TryExpandFrom(new Vector2Int(gridX, gridY));
+
+            Debug.Log($"{name} → Seeded");
         }
     }
 
@@ -95,6 +127,7 @@ public class HexBehavior : MonoBehaviour
                     hexRenderer.SetColor(Color.Lerp(Color.gray, Color.white, 0.3f));
                     isProgressing = true;
                     ticksRemaining = Mathf.Clamp(Mathf.RoundToInt((10f - influenceAmount * 2f) / growthMultiplier), 1, 6);
+                    Debug.Log($"{name} → Influenced");
                     return;
                 }
 
@@ -102,9 +135,16 @@ public class HexBehavior : MonoBehaviour
                 {
                     state = HexState.Growing;
                     crystalType = influencedByType;
-                    hexRenderer.SetColor(GetColorForCrystal(crystalType.Value));
+
+                    if (crystalType.HasValue)
+                    {
+                        crystalMesh?.SetColor(crystalBaseMaterial, GetColorForCrystal(crystalType.Value));
+                        crystalMesh?.ShowState(state);
+                    }
+
                     isProgressing = true;
                     ticksRemaining = Mathf.Clamp(Mathf.RoundToInt((10f - influenceAmount * 2f) / growthMultiplier), 1, 5);
+                    Debug.Log($"{name} → Growing from influence");
                     return;
                 }
             }
@@ -127,9 +167,16 @@ public class HexBehavior : MonoBehaviour
             {
                 state = HexState.Growing;
                 crystalType = influencedByType;
-                hexRenderer.SetColor(GetColorForCrystal(crystalType.Value));
+
+                if (crystalType.HasValue)
+                {
+                    crystalMesh?.SetColor(crystalBaseMaterial, GetColorForCrystal(crystalType.Value));
+                    crystalMesh?.ShowState(state);
+                }
+
                 isProgressing = true;
                 ticksRemaining = Mathf.Clamp(Mathf.RoundToInt((8f - influenceAmount * 1f) / growthMultiplier), 1, 5);
+                Debug.Log($"{name} → Reclaimed by {influencedByType}");
             }
         }
 
@@ -148,12 +195,14 @@ public class HexBehavior : MonoBehaviour
         {
             case HexState.Seeded:
                 state = HexState.Growing;
-                hexRenderer.SetColor(GetColorForCrystal(crystalType ?? CrystalType.Red));
+                crystalMesh?.ShowState(state);
+                Debug.Log($"{name} → Advancing to Growing");
                 break;
 
             case HexState.Growing:
                 state = HexState.Full;
-                hexRenderer.SetColor(GetColorForCrystal(crystalType ?? CrystalType.Red));
+                crystalMesh?.ShowState(state);
+                Debug.Log($"{name} → Advancing to Full");
                 break;
         }
     }
@@ -174,7 +223,7 @@ public class HexBehavior : MonoBehaviour
             }
         }
 
-       if (influenceMap.Count == 0)
+        if (influenceMap.Count == 0)
         {
             influencedByType = null;
             influenceAmount = 0;
@@ -194,28 +243,13 @@ public class HexBehavior : MonoBehaviour
             influencedByType = top.Key;
             influenceAmount = top.Value;
 
-            // Mostrar color tenue si aún no llega al umbral
             if (state == HexState.Empty && influenceAmount > 0 && influenceAmount < influenceThreshold)
             {
                 var baseColor = GetColorForCrystal(influencedByType.Value);
-                hexRenderer.SetColor(Color.Lerp(baseColor, Color.white, 0.7f)); // Color desaturado
+                hexRenderer.SetColor(Color.Lerp(baseColor, Color.white, 0.7f));
             }
         }
-
-
     }
 
-    public static Color GetColorForCrystal(CrystalType type)
-    {
-        return type switch
-        {
-            CrystalType.Red => Color.red,
-            CrystalType.Blue => Color.cyan,
-            CrystalType.Green => Color.green,
-            CrystalType.Yellow => new Color(1f, 1f, 0.2f),
-            CrystalType.Purple => new Color(0.6f, 0f, 0.6f),
-            CrystalType.Orange => new Color(1f, 0.5f, 0f),
-            _ => Color.white
-        };
-    }
+
 }

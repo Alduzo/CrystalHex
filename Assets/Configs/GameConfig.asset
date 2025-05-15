@@ -19,4 +19,10 @@ MonoBehaviour:
   maxX: 10
   minY: -10
   maxY: 10
+  mapShape: 0
+  terrainDiversity: 0.153
+  slowTilePercent: 0.05
+  fastTilePercent: 0.439
   enableDebugLabels: 1
+  terrainMaterials:
+  - {fileID: 2100000, guid: c810f068a17e4429a81e8c8a6faba51a, type: 2}

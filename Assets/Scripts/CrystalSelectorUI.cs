@@ -4,7 +4,7 @@ public class CrystalSelectorUI : MonoBehaviour
 {
     public static CrystalSelectorUI Instance;
 
-    public HexBehavior.CrystalType selectedCrystal = HexBehavior.CrystalType.Red;
+    public CrystalType selectedCrystal = CrystalType.Red;
 
     private void Awake()
     {
@@ -14,7 +14,7 @@ public class CrystalSelectorUI : MonoBehaviour
             Destroy(gameObject);
     }
 
-    public void SelectRedCrystal() => selectedCrystal = HexBehavior.CrystalType.Red;
-    public void SelectBlueCrystal() => selectedCrystal = HexBehavior.CrystalType.Blue;
-    public void SelectGreenCrystal() => selectedCrystal = HexBehavior.CrystalType.Green;
+    public void SelectRedCrystal() => selectedCrystal = CrystalType.Red;
+    public void SelectBlueCrystal() => selectedCrystal = CrystalType.Blue;
+    public void SelectGreenCrystal() => selectedCrystal = CrystalType.Green;
 }

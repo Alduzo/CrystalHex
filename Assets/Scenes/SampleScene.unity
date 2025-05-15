@@ -993,7 +993,7 @@ MonoBehaviour:
   m_LightType: 4
   m_BlendStyleIndex: 0
   m_FalloffIntensity: 0.5
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.9414041, g: 0.9622642, b: 0.26779994, a: 1}
   m_Intensity: 1
   m_LightVolumeIntensity: 1
   m_LightVolumeEnabled: 0
@@ -1753,7 +1753,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1389190792}
-  - component: {fileID: 1389190791}
   m_Layer: 0
   m_Name: HexGridLayout
   m_TagString: Untagged
@@ -1761,22 +1760,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1389190791
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1389190790}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ae3c71dc8a9c34456baff64180f82c16, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gridWidth: 16
-  gridHeight: 8
-  outerRadius: 3
-  hexPrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
 --- !u!4 &1389190792
 Transform:
   m_ObjectHideFlags: 0
@@ -2106,6 +2089,88 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1851568744}
   m_CullTransparentMesh: 1
+--- !u!1 &1877848587
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1877848588}
+  m_Layer: 0
+  m_Name: GameConfig
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1877848588
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1877848587}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1888717892
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1888717894}
+  - component: {fileID: 1888717893}
+  m_Layer: 0
+  m_Name: TerrainManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1888717893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1888717892}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d5eacbe9143b4250a6da5b1e9ff7d19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hexPrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
+  config: {fileID: 11400000, guid: 9a0426331a26e4ebba8be078646c0e50, type: 2}
+  terrainMaterials:
+  - {fileID: 2100000, guid: b137705797eb7427da6f29c8aec8cb90, type: 2}
+  - {fileID: 2100000, guid: b137705797eb7427da6f29c8aec8cb90, type: 2}
+  - {fileID: 2100000, guid: b137705797eb7427da6f29c8aec8cb90, type: 2}
+  - {fileID: 2100000, guid: b137705797eb7427da6f29c8aec8cb90, type: 2}
+--- !u!4 &1888717894
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1888717892}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1893679846
 GameObject:
   m_ObjectHideFlags: 0
@@ -2789,3 +2854,5 @@ SceneRoots:
   - {fileID: 113678151}
   - {fileID: 342307780}
   - {fileID: 1769477835}
+  - {fileID: 1888717894}
+  - {fileID: 1877848588}
