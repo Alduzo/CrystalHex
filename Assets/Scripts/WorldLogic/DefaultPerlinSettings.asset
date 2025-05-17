@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce752a9ee35644a70ae0f9028e419afd, type: 3}
+  m_Name: DefaultPerlinSettings
+  m_EditorClassIdentifier: 
+  elevationFreq: 0.02
+  elevationSeedOffset: 1000
+  moistureFreq: 0.03
+  moistureSeedOffset: 2000
+  tempFreq: 0.015
+  tempSeedOffset: 3000

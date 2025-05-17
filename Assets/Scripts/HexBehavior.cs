@@ -100,6 +100,14 @@ public class HexBehavior : MonoBehaviour
     public void OnTick()
     {
         EvaluateInfluence();
+        Debug.Log($"{name} tiene {neighbors.Count} vecinos.");
+
+
+        if (neighbors == null || neighbors.Count == 0)
+        {
+            Debug.LogWarning($"{name} has no neighbors!");
+            return;
+        }
 
         if (isProgressing)
         {
@@ -207,6 +215,7 @@ public class HexBehavior : MonoBehaviour
 
     public void EvaluateInfluence()
     {
+        WorldMapManager.Instance.AssignNeighborReferences(WorldMapManager.Instance.GetOrGenerateHex(coordinates));
         influenceMap.Clear();
 
         foreach (var neighbor in neighbors)

@@ -1,4 +1,4 @@
-// ChunkManager.cs
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,12 +6,11 @@ public class ChunkManager : MonoBehaviour
 {
     public static ChunkManager Instance;
 
-    public int chunkSize = 6; // e.g. 10x10 hexes per chunk
-    public int loadRadius = 0; // how many chunks around the player to load
-    public int unloadBufferRadius = 2; // ← aquí
     public GameObject hexPrefab;
+    public int chunkSize = 10;
+    public int loadRadius = 1; // Aumentado a 1 para tener vecinos
 
-    private Dictionary<Vector2Int, GameObject> loadedChunks = new();
+    public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
     private void Awake()
     {
@@ -21,6 +20,9 @@ public class ChunkManager : MonoBehaviour
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
         HashSet<Vector2Int> chunksToKeep = new();
+        List<Vector2Int> toUnload = new();
+
+        bool anyNewChunks = false;
 
         for (int dx = -loadRadius; dx <= loadRadius; dx++)
         {
@@ -33,33 +35,47 @@ public class ChunkManager : MonoBehaviour
                 {
                     GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
                     loadedChunks[coord] = chunk;
+                    anyNewChunks = true;
                 }
             }
         }
 
-        // Unload chunks that are no longer in range
-        List<Vector2Int> toUnload = new();
-        foreach (var kvp in loadedChunks)
+        // ✅ Reasignar vecinos visuales luego de cargar nuevos chunks
+        if (anyNewChunks)
         {
-            Vector2Int diff = kvp.Key - playerChunkCoord;
-            if (Mathf.Abs(diff.x) > unloadBufferRadius || Mathf.Abs(diff.y) > unloadBufferRadius)
-            {
-                Destroy(kvp.Value);
-                toUnload.Add(kvp.Key);
-            }
-
+            ReassignAllChunkBehaviorNeighbors();
         }
+
+        foreach (var coord in loadedChunks.Keys)
+        {
+            if (!chunksToKeep.Contains(coord))
+            {
+                toUnload.Add(coord);
+            }
+        }
+
         foreach (var coord in toUnload)
         {
             loadedChunks.Remove(coord);
         }
     }
 
-   public static Vector2Int WorldToChunkCoord(HexCoordinates hex)
+    public static Vector2Int WorldToChunkCoord(HexCoordinates coordinates)
     {
-        int qChunk = Mathf.FloorToInt(hex.Q / (float)Instance.chunkSize);
-        int rChunk = Mathf.FloorToInt(hex.R / (float)Instance.chunkSize);
-        return new Vector2Int(qChunk, rChunk);
+        int chunkX = Mathf.FloorToInt((float)coordinates.Q / Instance.chunkSize);
+        int chunkY = Mathf.FloorToInt((float)coordinates.R / Instance.chunkSize);
+        return new Vector2Int(chunkX, chunkY);
     }
 
+    public void ReassignAllChunkBehaviorNeighbors()
+    {
+        foreach (var chunk in loadedChunks.Values)
+        {
+            var behaviors = chunk.GetComponentsInChildren<HexBehavior>();
+            foreach (var behavior in behaviors)
+            {
+                ChunkGenerator.AssignBehaviorNeighborsFromWorldMap(behavior);
+            }
+        }
+    }
 }

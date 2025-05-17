@@ -1,8 +1,58 @@
-# Documentación de Todos los Scripts C# en CrystalHex
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/PlayerController.cs ---
+using UnityEngine;
+using System.Collections;
 
-## CrystalSelectorUI.cs
-**Ruta:** CrystalSelectorUI.cs
-```csharp
+public class PlayerController : MonoBehaviour
+{
+    public float moveSpeed = 5f;
+
+    private Vector2Int currentChunkCoord;
+
+IEnumerator Start()
+{
+    yield return new WaitUntil(() => ChunkManager.Instance != null);
+
+    HexCoordinates playerHex = HexCoordinates.FromWorldPosition(transform.position, HexRenderer.SharedOuterRadius);
+    Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(playerHex);
+    currentChunkCoord = chunkCoord;
+    ChunkManager.Instance.UpdateChunks(chunkCoord);
+}
+
+
+
+    void Update()
+    {
+        float h = 0f;
+        float v = 0f;
+
+        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) h = -1f;
+        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) h = 1f;
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) v = 1f;
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) v = -1f;
+
+
+        Vector3 move = new Vector3(h, v, 0f) * moveSpeed * Time.deltaTime;
+        transform.position += move;
+
+        UpdateChunkLoading();
+    }
+
+    void UpdateChunkLoading(bool force = false)
+        {
+            HexCoordinates playerHex = HexCoordinates.FromWorldPosition(transform.position, HexRenderer.SharedOuterRadius);
+            Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(playerHex);
+
+            if (force || chunkCoord != currentChunkCoord)
+            {
+                Debug.Log("Player moved to chunk " + chunkCoord);
+                currentChunkCoord = chunkCoord;
+                ChunkManager.Instance.UpdateChunks(chunkCoord);
+            }
+        }
+
+    
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/CrystalSelectorUI.cs ---
 using UnityEngine;
 
 public class CrystalSelectorUI : MonoBehaviour
@@ -23,11 +73,7 @@ public class CrystalSelectorUI : MonoBehaviour
     public void SelectBlueCrystal() => selectedCrystal = CrystalType.Blue;
     public void SelectGreenCrystal() => selectedCrystal = CrystalType.Green;
 }
-```
-
-## GameSpeedDropdownToggle.cs
-**Ruta:** GameSpeedDropdownToggle.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/GameSpeedDropdownToggle.cs ---
 using UnityEngine;
 
 public class GameSpeedDropdownToggle : MonoBehaviour
@@ -39,11 +85,7 @@ public class GameSpeedDropdownToggle : MonoBehaviour
         dropdownPanel.SetActive(!dropdownPanel.activeSelf);
     }
 }
-```
-
-## CrystalGenerator.cs
-**Ruta:** CrystalGenerator.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/CrystalGenerator.cs ---
 /*using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
@@ -103,11 +145,191 @@ public class CrystalGenerator : MonoBehaviour
         }
     }
 }*/
-```
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/HexCoordinates.cs ---
+using UnityEngine;
 
-## CrystalMesh.cs
-**Ruta:** CrystalMesh.cs
-```csharp
+[System.Serializable]
+public struct HexCoordinates
+{
+    public readonly int Q; // eje x axial
+    public readonly int R; // eje z axial (se llama R en muchos sistemas)
+
+    public int S => -Q - R; // coordenada cúbica implícita
+
+    public HexCoordinates(int q, int r)
+    {
+        this.Q = q;
+        this.R = r;
+    }
+
+    // Conversión desde coordenadas de mundo a coordenadas hexagonales
+    public static HexCoordinates FromWorldPosition(Vector3 position, float hexOuterRadius)
+    {
+        float width = hexOuterRadius * 2f;
+        float height = Mathf.Sqrt(3f) * hexOuterRadius;
+
+        float q = (position.x * 2f/3f) / hexOuterRadius;
+        float r = (-position.x / 3f + Mathf.Sqrt(3f)/3f * position.y) / hexOuterRadius;
+
+        return FromFractional(q, r);
+    }
+
+    // Ajuste de coordenadas flotantes a coordenadas hexagonales enteras (redondeo cúbico)
+    public static HexCoordinates FromFractional(float q, float r)
+    {
+        float s = -q - r;
+
+        int rq = Mathf.RoundToInt(q);
+        int rr = Mathf.RoundToInt(r);
+        int rs = Mathf.RoundToInt(s);
+
+        float q_diff = Mathf.Abs(rq - q);
+        float r_diff = Mathf.Abs(rr - r);
+        float s_diff = Mathf.Abs(rs - s);
+
+        if (q_diff > r_diff && q_diff > s_diff)
+            rq = -rr - rs;
+        else if (r_diff > s_diff)
+            rr = -rq - rs;
+
+        return new HexCoordinates(rq, rr);
+    }
+
+    public override string ToString()
+    {
+        return $"({Q}, {R}, {S})";
+    }
+
+    public Vector2Int ToVector2Int()
+    {
+        return new Vector2Int(Q, R);
+    }
+
+public static Vector3 ToWorldPosition(HexCoordinates coord, float outerRadius)
+{
+    float width = outerRadius * 2f;
+    float height = outerRadius * Mathf.Sqrt(3f);
+
+    float x = coord.Q * width * 0.75f;
+    float y = coord.R * height;
+
+    if (coord.Q % 2 != 0)
+    {
+        y += height / 2f;
+    }
+
+    return new Vector3(x, y, 0f);
+}
+
+
+    public static int Distance(HexCoordinates a, HexCoordinates b)
+    {
+        return (Mathf.Abs(a.Q - b.Q) + Mathf.Abs(a.R - b.R) + Mathf.Abs(a.S - b.S)) / 2;
+    }
+
+    public static HexCoordinates Zero => new HexCoordinates(0, 0);
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/WorldLogic/WorldMapManager.cs ---
+using System.Collections.Generic;
+using UnityEngine;
+
+public class WorldMapManager : MonoBehaviour
+{
+    public static WorldMapManager Instance;
+
+    public int seed = 42;
+    public int chunkSize = 6;
+    public PerlinSettings perlinSettings;
+
+    private Dictionary<HexCoordinates, HexData> worldMap = new();
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    public HexData GetOrGenerateHex(HexCoordinates coord)
+    {
+        if (worldMap.TryGetValue(coord, out var existing))
+            return existing;
+
+        HexData hex = new HexData();
+        hex.coordinates = coord;
+
+        // Capas Perlin
+        hex.elevation = PerlinUtility.Perlin(coord, perlinSettings.elevationFreq, perlinSettings.elevationSeedOffset + seed);
+        hex.moisture  = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.moistureSeedOffset + seed);
+        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.tempSeedOffset + seed);
+
+        // Bioma simple provisional
+        hex.terrainType = hex.elevation < 0.3f ? TerrainType.Water : (hex.moisture > 0.6f ? TerrainType.Forest : TerrainType.Plains);
+
+        worldMap[coord] = hex;
+        return hex;
+    }
+
+    public List<HexData> GetChunkHexes(Vector2Int chunkCoord)
+    {
+        List<HexData> chunkHexes = new();
+
+        for (int dx = 0; dx < chunkSize; dx++)
+        {
+            for (int dy = 0; dy < chunkSize; dy++)
+            {
+                int q = chunkCoord.x * chunkSize + dx;
+                int r = chunkCoord.y * chunkSize + dy;
+                chunkHexes.Add(GetOrGenerateHex(new HexCoordinates(q, r)));
+            }
+        }
+
+        return chunkHexes;
+    }
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/WorldLogic/HexData.cs ---
+public enum TerrainType { Plains, Mountains, Forest, Water }
+public enum HexType { Natural, Rural, Urban }
+public enum ResourceType { Minerals, Wood, Food, Water, Energy }
+
+public class HexData
+{
+    public HexCoordinates coordinates;
+
+    // Capa estática
+    public float elevation;
+    public float moisture;
+    public float temperature;
+    public TerrainType terrainType;
+
+    // Capa dinámica
+    public HexType hexType = HexType.Natural;
+    public bool isExplored = false;
+    public Dictionary<ResourceType, float> extractedResources = new();
+
+    public List<HexCoordinates> neighbors = new();
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/ChunkGizmoDrawer.cs ---
+using UnityEngine;
+
+[ExecuteAlways]
+public class ChunkGizmoDrawer : MonoBehaviour
+{
+    public Color gizmoColor = Color.cyan;
+
+    void OnDrawGizmos()
+    {
+        Gizmos.color = gizmoColor;
+
+        foreach (Transform child in transform)
+        {
+            if (child.name.StartsWith("Chunk_"))
+            {
+                Bounds bounds = new Bounds(child.position, new Vector3(10f, 10f, 0.1f)); // ajusta según chunkSize
+                Gizmos.DrawWireCube(bounds.center, bounds.size);
+            }
+        }
+    }
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/CrystalMesh.cs ---
 using UnityEngine;
 
 public class CrystalMesh : MonoBehaviour
@@ -192,11 +414,7 @@ public class CrystalMesh : MonoBehaviour
     
 
 }
-```
-
-## TickManager.cs
-**Ruta:** TickManager.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/TickManager.cs ---
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -259,11 +477,73 @@ public class TickManager : MonoBehaviour
             hexesToTick.Add(hex);
     }
 }
-```
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/ChunkManager.cs ---
+// ChunkManager.cs
+using System.Collections.Generic;
+using UnityEngine;
 
-## GameSpeedUI.cs
-**Ruta:** GameSpeedUI.cs
-```csharp
+public class ChunkManager : MonoBehaviour
+{
+    public static ChunkManager Instance;
+
+    public int chunkSize = 6; // e.g. 10x10 hexes per chunk
+    public int loadRadius = 0; // how many chunks around the player to load
+    public int unloadBufferRadius = 2; // ← aquí
+    public GameObject hexPrefab;
+
+    private Dictionary<Vector2Int, GameObject> loadedChunks = new();
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    public void UpdateChunks(Vector2Int playerChunkCoord)
+    {
+        HashSet<Vector2Int> chunksToKeep = new();
+
+        for (int dx = -loadRadius; dx <= loadRadius; dx++)
+        {
+            for (int dy = -loadRadius; dy <= loadRadius; dy++)
+            {
+                Vector2Int coord = new Vector2Int(playerChunkCoord.x + dx, playerChunkCoord.y + dy);
+                chunksToKeep.Add(coord);
+
+                if (!loadedChunks.ContainsKey(coord))
+                {
+                    GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
+                    loadedChunks[coord] = chunk;
+                }
+            }
+        }
+
+        // Unload chunks that are no longer in range
+        List<Vector2Int> toUnload = new();
+        foreach (var kvp in loadedChunks)
+        {
+            Vector2Int diff = kvp.Key - playerChunkCoord;
+            if (Mathf.Abs(diff.x) > unloadBufferRadius || Mathf.Abs(diff.y) > unloadBufferRadius)
+            {
+                Destroy(kvp.Value);
+                toUnload.Add(kvp.Key);
+            }
+
+        }
+        foreach (var coord in toUnload)
+        {
+            loadedChunks.Remove(coord);
+        }
+    }
+
+   public static Vector2Int WorldToChunkCoord(HexCoordinates hex)
+    {
+        int qChunk = Mathf.FloorToInt(hex.Q / (float)Instance.chunkSize);
+        int rChunk = Mathf.FloorToInt(hex.R / (float)Instance.chunkSize);
+        return new Vector2Int(qChunk, rChunk);
+    }
+
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/GameSpeedUI.cs ---
 using UnityEngine;
 
 public class GameSpeedUI : MonoBehaviour
@@ -288,11 +568,65 @@ public class GameSpeedUI : MonoBehaviour
         dropdownPanel.SetActive(false);
     }
 }
-```
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/ChunkGenerator.cs ---
+using UnityEngine;
 
-## HexRenderer.cs
-**Ruta:** HexRenderer.cs
-```csharp
+public static class ChunkGenerator
+{
+    public static GameObject GenerateChunk(Vector2Int chunkCoord, int chunkSize, GameObject hexPrefab)
+    {
+        GameObject parent = new GameObject($"Chunk_{chunkCoord.x}_{chunkCoord.y}");
+
+        for (int dx = 0; dx < chunkSize; dx++)
+        {
+            for (int dy = 0; dy < chunkSize; dy++)
+            {
+                int globalQ = chunkCoord.x * chunkSize + dx;
+                int globalR = chunkCoord.y * chunkSize + dy;
+
+                HexCoordinates hexCoord = new HexCoordinates(globalQ, globalR);
+                Vector3 worldPos = HexCoordinates.ToWorldPosition(hexCoord, HexRenderer.SharedOuterRadius);
+
+                GameObject hex = Object.Instantiate(hexPrefab, worldPos, Quaternion.identity, parent.transform);
+                hex.name = $"Hex_{globalQ}_{globalR}";
+
+                HexBehavior behavior = hex.GetComponent<HexBehavior>();
+                if (behavior != null)
+                {
+                    behavior.coordinates = hexCoord;
+                }
+            }
+            AssignNeighbors(parent);
+        }
+        return parent;
+        
+    }
+    public static void AssignNeighbors(GameObject chunkRoot)
+    {
+        HexBehavior[] hexes = chunkRoot.GetComponentsInChildren<HexBehavior>();
+
+        foreach (HexBehavior hex in hexes)
+        {
+            hex.neighbors.Clear();
+            foreach (HexBehavior other in hexes)
+            {
+                if (hex == other) continue;
+
+                int dq = Mathf.Abs(hex.coordinates.Q - other.coordinates.Q);
+                int dr = Mathf.Abs(hex.coordinates.R - other.coordinates.R);
+
+                if ((dq == 1 && dr == 0) || (dq == 0 && dr == 1) || (dq == 1 && dr == 1))
+                {
+                    hex.neighbors.Add(other);
+                }
+            }
+        }
+    }
+
+   
+
+}
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/HexRenderer.cs ---
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -497,11 +831,7 @@ private void Update()
 
 
 }
-```
-
-## CameraController.cs
-**Ruta:** CameraController.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/CameraController.cs ---
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -534,11 +864,7 @@ public class CameraController : MonoBehaviour
         }
     }
 }
-```
-
-## GameEnums.cs
-**Ruta:** GameEnums.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/GameEnums.cs ---
 using UnityEngine;
 
 public enum GameSpeed
@@ -548,11 +874,7 @@ public enum GameSpeed
     Fast
 }
 
-```
-
-## TerrainGenerator.cs
-**Ruta:** TerrainGenerator.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/TerrainGenerator.cs ---
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -656,8 +978,8 @@ public class TerrainGenerator : MonoBehaviour
         var behavior = hex.GetComponent<HexBehavior>();
         if (behavior != null)
         {
-            behavior.gridX = coord.x;
-            behavior.gridY = coord.y;
+        behavior.coordinates = new HexCoordinates(coord.x, coord.y);
+
         }
 
         // Visual diversity via material
@@ -679,13 +1001,10 @@ public class TerrainGenerator : MonoBehaviour
     }
 
     private Vector3 HexToWorld(Vector2Int coord)
-    {
-        float width = HexRenderer.SharedOuterRadius * 2f;
-        float height = HexRenderer.SharedOuterRadius * Mathf.Sqrt(3f);
-        float x = coord.x * width * 0.75f;
-        float y = coord.y * height + (coord.x % 2 != 0 ? height / 2f : 0f);
-        return new Vector3(x, y, 0);
-    }
+{
+    return HexCoordinates.ToWorldPosition(new HexCoordinates(coord.x, coord.y), HexRenderer.SharedOuterRadius);
+}
+
 
     private void AssignAllNeighbors()
     {
@@ -748,12 +1067,8 @@ public class TerrainGenerator : MonoBehaviour
 }
 
 }
-```
-
-## HexGridLayout.cs
-**Ruta:** HexGridLayout.cs
-```csharp
-using UnityEngine;
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/HexGridLayout.cs ---
+/*using UnityEngine;
 
 public class HexGridLayout : MonoBehaviour
 {
@@ -847,11 +1162,7 @@ public class HexGridLayout : MonoBehaviour
         }
     }
 }
-```
-
-## HexBehavior.cs
-**Ruta:** HexBehavior.cs
-```csharp
+*/--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/HexBehavior.cs ---
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -877,7 +1188,8 @@ public class HexBehavior : MonoBehaviour
     public CrystalSubtype? crystalSubtype = null;
     public CrystalType? influencedByType = null;
 
-    public int gridX, gridY;
+    public HexCoordinates coordinates;
+
     public List<HexBehavior> neighbors = new();
 
     private HexRenderer hexRenderer;
@@ -944,7 +1256,8 @@ public class HexBehavior : MonoBehaviour
             }
 
             var terrainGen = GameObject.FindFirstObjectByType<TerrainGenerator>();
-            terrainGen?.TryExpandFrom(new Vector2Int(gridX, gridY));
+            terrainGen?.TryExpandFrom(coordinates.ToVector2Int()
+);
             Debug.Log($"{name} → Seeded");
         }
     }
@@ -1035,7 +1348,7 @@ public class HexBehavior : MonoBehaviour
         if (state == HexState.Full)
         {
             var terrainGen = GameObject.FindFirstObjectByType<TerrainGenerator>();
-            terrainGen?.TryExpandFrom(new Vector2Int(gridX, gridY));
+            terrainGen?.TryExpandFrom(coordinates.ToVector2Int());
         }
     }
 
@@ -1105,11 +1418,7 @@ public class HexBehavior : MonoBehaviour
         }
     }
 }
-```
-
-## GameConfig.cs
-**Ruta:** GameConfig.cs
-```csharp
+--- /Users/alexandrodupuiszorrilla/CrystalHex/Assets/Scripts/GameConfig.cs ---
 using UnityEngine;
 
 public enum MapShape { Square, Hexagonal, Random }  // ✅ Ahora correctamente declarado FUERA de la clase
@@ -1145,5 +1454,3 @@ public class GameConfig : ScriptableObject
     public Material[] terrainMaterials;
 
 }
-```
-

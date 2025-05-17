@@ -1,32 +1,46 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
 public struct HexCoordinates
 {
-    public readonly int Q; // eje x axial
-    public readonly int R; // eje z axial (se llama R en muchos sistemas)
+    public readonly int Q; // Coordenada axial horizontal (x)
+    public readonly int R; // Coordenada axial vertical (z)
 
-    public int S => -Q - R; // coordenada cúbica implícita
+    // Coordenada cúbica implícita
+    public int S => -Q - R;
 
     public HexCoordinates(int q, int r)
     {
-        this.Q = q;
-        this.R = r;
+        Q = q;
+        R = r;
     }
 
-    // Conversión desde coordenadas de mundo a coordenadas hexagonales
+    // Devuelve la lista de coordenadas vecinas (orientación flat-top)
+    public List<HexCoordinates> GetAllNeighbors()
+    {
+        return new List<HexCoordinates>
+        {
+            new HexCoordinates(Q + 1, R),
+            new HexCoordinates(Q - 1, R),
+            new HexCoordinates(Q, R + 1),
+            new HexCoordinates(Q, R - 1),
+            new HexCoordinates(Q + 1, R - 1),
+            new HexCoordinates(Q - 1, R + 1)
+        };
+    }
+
     public static HexCoordinates FromWorldPosition(Vector3 position, float hexOuterRadius)
     {
         float width = hexOuterRadius * 2f;
         float height = Mathf.Sqrt(3f) * hexOuterRadius;
 
-        float q = (position.x * 2f/3f) / hexOuterRadius;
-        float r = (-position.x / 3f + Mathf.Sqrt(3f)/3f * position.y) / hexOuterRadius;
+        float q = (position.x * 2f / 3f) / hexOuterRadius;
+        float r = (-position.x / 3f + Mathf.Sqrt(3f) / 3f * position.y) / hexOuterRadius;
 
         return FromFractional(q, r);
     }
 
-    // Ajuste de coordenadas flotantes a coordenadas hexagonales enteras (redondeo cúbico)
     public static HexCoordinates FromFractional(float q, float r)
     {
         float s = -q - r;
@@ -57,22 +71,20 @@ public struct HexCoordinates
         return new Vector2Int(Q, R);
     }
 
-public static Vector3 ToWorldPosition(HexCoordinates coord, float outerRadius)
-{
-    float width = outerRadius * 2f;
-    float height = outerRadius * Mathf.Sqrt(3f);
-
-    float x = coord.Q * width * 0.75f;
-    float y = coord.R * height;
-
-    if (coord.Q % 2 != 0)
+    public static Vector3 ToWorldPosition(HexCoordinates coord, float outerRadius)
     {
-        y += height / 2f;
+        float width = outerRadius * 2f;
+        float height = outerRadius * Mathf.Sqrt(3f);
+        float x = coord.Q * width * 0.75f;
+        float y = coord.R * height;
+
+        if (coord.Q % 2 != 0)
+        {
+            y += height / 2f;
+        }
+
+        return new Vector3(x, y, 0f);
     }
-
-    return new Vector3(x, y, 0f);
-}
-
 
     public static int Distance(HexCoordinates a, HexCoordinates b)
     {

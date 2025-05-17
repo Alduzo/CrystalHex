@@ -6,7 +6,7 @@ public static class ChunkGenerator
     {
         GameObject parent = new GameObject($"Chunk_{chunkCoord.x}_{chunkCoord.y}");
 
-        for (int dx = 0; dx < chunkSize; dx++)
+                for (int dx = 0; dx < chunkSize; dx++)
         {
             for (int dy = 0; dy < chunkSize; dy++)
             {
@@ -23,13 +23,47 @@ public static class ChunkGenerator
                 if (behavior != null)
                 {
                     behavior.coordinates = hexCoord;
+
+                    var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
+                    WorldMapManager.Instance.AssignNeighborReferences(hexData);
+
+                    foreach (var neighborData in hexData.neighborRefs)
+                    {
+                        if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+                        {
+                            Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
+                            if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
+                            {
+                                var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
+                                foreach (var other in behaviorList)
+                                {
+                                    if (other.coordinates.Equals(nData.coordinates))
+                                    {
+                                        behavior.neighbors.Add(other);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            AssignNeighbors(parent);
         }
+
+        // ✅ Asignar vecinos visuales entre chunks (cuando ya todos existen)
+        HexBehavior[] behaviors = parent.GetComponentsInChildren<HexBehavior>();
+        foreach (var behavior in behaviors)
+        {
+            AssignBehaviorNeighborsFromWorldMap(behavior);
+            Debug.Log($"Assigning neighbors to {behavior.name}, found {behavior.neighbors.Count}");
+
+        }
+
         return parent;
+
         
     }
+
     public static void AssignNeighbors(GameObject chunkRoot)
     {
         HexBehavior[] hexes = chunkRoot.GetComponentsInChildren<HexBehavior>();
@@ -52,6 +86,34 @@ public static class ChunkGenerator
         }
     }
 
-   
+
+    public static void AssignBehaviorNeighborsFromWorldMap(HexBehavior behavior)
+    {
+        var hexData = WorldMapManager.Instance.GetOrGenerateHex(behavior.coordinates);
+        WorldMapManager.Instance.AssignNeighborReferences(hexData);
+
+        foreach (var neighborData in hexData.neighborRefs)
+        {
+            if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+            {
+                Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
+                if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
+                {
+                    var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
+                    foreach (var other in behaviorList)
+                    {
+                        if (other.coordinates.Equals(nData.coordinates))
+                        {
+                            behavior.neighbors.Add(other);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 
 }
+
