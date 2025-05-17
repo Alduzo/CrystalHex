@@ -101,8 +101,8 @@ public class TerrainGenerator : MonoBehaviour
         var behavior = hex.GetComponent<HexBehavior>();
         if (behavior != null)
         {
-            behavior.gridX = coord.x;
-            behavior.gridY = coord.y;
+        behavior.coordinates = new HexCoordinates(coord.x, coord.y);
+
         }
 
         // Visual diversity via material
@@ -124,13 +124,10 @@ public class TerrainGenerator : MonoBehaviour
     }
 
     private Vector3 HexToWorld(Vector2Int coord)
-    {
-        float width = HexRenderer.SharedOuterRadius * 2f;
-        float height = HexRenderer.SharedOuterRadius * Mathf.Sqrt(3f);
-        float x = coord.x * width * 0.75f;
-        float y = coord.y * height + (coord.x % 2 != 0 ? height / 2f : 0f);
-        return new Vector3(x, y, 0);
-    }
+{
+    return HexCoordinates.ToWorldPosition(new HexCoordinates(coord.x, coord.y), HexRenderer.SharedOuterRadius);
+}
+
 
     private void AssignAllNeighbors()
     {

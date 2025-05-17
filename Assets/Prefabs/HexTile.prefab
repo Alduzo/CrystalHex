@@ -149,7 +149,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2348203789960447035}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!23 &3819549947611490585
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -211,7 +211,7 @@ MonoBehaviour:
   height: 0
   material: {fileID: 2100000, guid: 19a008ff320494e63850bbcd786a9210, type: 2}
   baseColor: {r: 0.75, g: 1, b: 0.75, a: 1}
-  edgeColor: {r: 0.3962264, g: 0.3962264, b: 0.3962264, a: 1}
+  edgeColor: {r: 0.764151, g: 0.71729267, b: 0.71729267, a: 1}
 --- !u!64 &-8591266804775888557
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -248,8 +248,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   crystalBaseMaterial: {fileID: 2100000, guid: 19a008ff320494e63850bbcd786a9210, type: 2}
   state: 0
-  gridX: 0
-  gridY: 0
   neighbors: []
   influenceAmount: 0
   influenceThreshold: 2
@@ -356,7 +354,7 @@ PrefabInstance:
     - target: {fileID: 1518692455929729048, guid: 0b43ec8502c094e558cb9d783c6accaf, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 4702925393065980420, guid: b385e6f85d11b46f282ed379d4d22517, type: 3}
+      objectReference: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
     - target: {fileID: 4317832268336023796, guid: 0b43ec8502c094e558cb9d783c6accaf, type: 3}
       propertyPath: m_Enabled
       value: 1
