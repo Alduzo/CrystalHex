@@ -1,7 +1,20 @@
 using System.Collections.Generic;
 
 
-public enum TerrainType { Plains, Mountains, Forest, Water }
+
+
+public enum TerrainType
+{
+    OceanDeep,
+    OceanShallow,
+    Beach,
+    Plains,
+    Hills,
+    Valley,
+    Mountains,
+    Forest
+}
+
 public enum HexType { Natural, Rural, Urban }
 public enum ResourceType { Minerals, Wood, Food, Water, Energy }
 

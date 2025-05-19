@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archivo de salida
-output_file="260517CrystalHex_Reference.md"
+output_file="260519Materials Ref.md"
 
 # Limpia archivo si ya existe
 echo "# HexMap – Código fuente consolidado" > "$output_file"

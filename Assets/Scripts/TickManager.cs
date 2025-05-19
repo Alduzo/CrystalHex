@@ -6,8 +6,8 @@ public class TickManager : MonoBehaviour
     private float tickTimer;
     private float tickInterval;
 
-    public List<HexBehavior> hexesToTick = new();
-    public GameSpeed speed = GameSpeed.Fast;
+    public List<HexBehavior> WorldTickSystem = new();
+    public GameSpeed speed = GameSpeed.Slow;
 
     private void Start()
     {
@@ -48,7 +48,7 @@ public class TickManager : MonoBehaviour
 
     private void Tick()
     {
-        foreach (var hex in hexesToTick)
+        foreach (var hex in WorldTickSystem)
         {
             hex.OnTick();
         }
@@ -56,7 +56,14 @@ public class TickManager : MonoBehaviour
 
     public void Register(HexBehavior hex)
     {
-        if (!hexesToTick.Contains(hex))
-            hexesToTick.Add(hex);
+        if (!WorldTickSystem.Contains(hex))
+            WorldTickSystem.Add(hex);
     }
+
+    public void Unregister(HexBehavior hex)
+{
+    if (WorldTickSystem.Contains(hex))
+        WorldTickSystem.Remove(hex);
+}
+
 }

@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3142f156cbdc4c49aa22c5a4751efe6, type: 3}
+  m_Name: ChunkMap_GameConfig
+  m_EditorClassIdentifier: 
+  terrainMaterials:
+  - terrainType: 0
+    material: {fileID: 0}
+  - terrainType: 0
+    material: {fileID: 2100000, guid: dffa1dffda3f14400a9233b97f7bed6b, type: 2}
+  - terrainType: 1
+    material: {fileID: 2100000, guid: 9d0d55e03adb4495ab31b27a79b762ab, type: 2}
+  - terrainType: 2
+    material: {fileID: 2100000, guid: 7bf9f12443d9c42a2a76183558b3f40a, type: 2}
+  - terrainType: 3
+    material: {fileID: 2100000, guid: 02cf741c769064bcda43d80ff4a119e8, type: 2}
+  - terrainType: 4
+    material: {fileID: 2100000, guid: 91e8eb71bdd6e4b649e40f55a9abd784, type: 2}
+  - terrainType: 5
+    material: {fileID: 2100000, guid: 02cf741c769064bcda43d80ff4a119e8, type: 2}
+  - terrainType: 6
+    material: {fileID: 2100000, guid: e14bf7e929b824357a1bb55657b87799, type: 2}
+  - terrainType: 7
+    material: {fileID: 2100000, guid: df113fe527fc94802b83992ac02eef3f, type: 2}
+  elevationScale: 1

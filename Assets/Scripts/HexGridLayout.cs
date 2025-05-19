@@ -38,7 +38,7 @@ public class HexGridLayout : MonoBehaviour
                     yOffset += height / 2f;
                 }
 
-                Vector3 spawnPos = new Vector3(xOffset, yOffset, 0);
+                Vector3 spawnPos = new Vector3(xOffset, 0f, yOffset);
                 GameObject hexObj = Instantiate(hexPrefab, spawnPos, Quaternion.identity, this.transform);
                 hexObj.name = $"Hex_{x}_{y}";
 

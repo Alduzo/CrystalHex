@@ -13,7 +13,7 @@ public class ChunkGizmoDrawer : MonoBehaviour
         {
             if (child.name.StartsWith("Chunk_"))
             {
-                Bounds bounds = new Bounds(child.position, new Vector3(10f, 10f, 0.1f)); // ajusta según chunkSize
+                Bounds bounds = new Bounds(child.position, new Vector3(10f, 0.1f, 10f)); // ajusta según chunkSize
                 Gizmos.DrawWireCube(bounds.center, bounds.size);
             }
         }

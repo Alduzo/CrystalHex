@@ -25,6 +25,26 @@ public static class ChunkGenerator
                     behavior.coordinates = hexCoord;
 
                     var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
+                    // Obtener renderer y aplicar visualización de altura y color
+                    var renderer = hex.GetComponent<HexRenderer>();
+                    if (renderer != null)
+                    {
+                        var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+                        if (config != null)  // ← buena práctica por si no se encuentra el asset
+                        {
+                            float elevationHeight = hexData.elevation * config.elevationScale;
+                            renderer.SetHeight(elevationHeight);
+
+                            Material mat = config.GetMaterialFor(hexData.terrainType);
+                            if (mat != null)
+                                renderer.GetComponent<MeshRenderer>().material = mat;
+                        }
+                        else
+                        {
+                            Debug.LogWarning("ChunkMapGameConfig not found in Resources.");
+                        }
+                    }
+
                     WorldMapManager.Instance.AssignNeighborReferences(hexData);
 
                     foreach (var neighborData in hexData.neighborRefs)

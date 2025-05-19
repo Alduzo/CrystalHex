@@ -1,204 +1,172 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
 public class HexRenderer : MonoBehaviour
 {
-    private Mesh _mesh;
-    private MeshFilter _meshFilter;
-    private MeshRenderer _meshRenderer;
+    public static float SharedOuterRadius = 1f;
 
     [Header("Hex Settings")]
     public float innerRadius = 0.5f;
-    public static float SharedOuterRadius = 1f;
-    public float height = 0f;
+    public static float outerRadiusShared = 1f;
+    public float columnHeight = 0f;
 
-    [Header("Visual Settings")]
+    [Header("Visual")]
     public Material material;
-    public Color baseColor = Color.green;
-    private Color _baseColor; // active color used for drawing
-    public Color edgeColor = Color.black;
+    public Color topColor = Color.magenta;
+    public Color sideColor = Color.black;
 
-    private List<Face> _faces;
-    private List<Color> _colors;
+    [Header("Scale Settings")]
+    [Range(0.01f, 1f)] public float heightScale = 0.25f;
 
-    private void Awake()
-    {
-        SetupComponents();
-        DrawMesh();
-        _baseColor = baseColor;
+    Mesh _mesh;
+    MeshFilter _mf;
+    MeshCollider _mc;
+    MeshRenderer _mr;
 
-    }
+    const int terracesPerSlope = 2;
+    const int terraceSteps = terracesPerSlope * 2 + 1;
+    const float horizontalTerraceStepSize = 1f / terraceSteps;
+    const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);
 
-    private void OnEnable()
-    {
-        SetupComponents();
-        DrawMesh();
-    }
+    void Awake() => BuildMesh();
+    void OnEnable() => BuildMesh();
 
-    public void OnValidate()
-    {
 #if UNITY_EDITOR
-        if (!Application.isPlaying) return;
+    void OnValidate() {
+        if (!Application.isPlaying) BuildMesh();
+    }
 #endif
-        SetupComponents();
-        DrawMesh();
+
+    public void SetHeight(float h) {
+        columnHeight = h;
+        BuildMesh();
     }
 
-    private void SetupComponents()
-    {
-        if (_meshFilter == null) _meshFilter = GetComponent<MeshFilter>();
-        if (_meshRenderer == null) _meshRenderer = GetComponent<MeshRenderer>();
-        if (_mesh == null)
-        {
-            _mesh = new Mesh { name = "HexMesh_Runtime" };
-            GetComponent<MeshFilter>().mesh = _mesh;
-            GetComponent<MeshCollider>().sharedMesh = _mesh;
-        }
-
-        if (_meshRenderer.sharedMaterial == null && material != null)
-            _meshRenderer.sharedMaterial = material;
+    public void SetColor(Color color) {
+        topColor = color;
+        BuildMesh();
     }
 
-    public void DrawMesh()
-    {
-        _faces = new List<Face>();
-        DrawFaces();
-        CombineFaces();
-        if (TryGetComponent(out MeshCollider col))
-        {
-            col.sharedMesh = null; // reset first
-            col.sharedMesh = _mesh; // reassign updated mesh
-        }
-
-    }
-
-    private void DrawFaces()
-    {
-        for (int point = 0; point < 6; point++)
-        {
-            _faces.Add(CreateFace(innerRadius, SharedOuterRadius, height, height, point));
-        }
-    }
-
-    private Face CreateFace(float innerRad, float outerRad, float heightA, float heightB, int point, bool reverse = false)
-    {
-        Vector3 pointA = GetPoint(innerRad, heightB, point);
-        Vector3 pointB = GetPoint(innerRad, heightB, (point < 5) ? point + 1 : 0);
-        Vector3 pointC = GetPoint(outerRad, heightA, (point < 5) ? point + 1 : 0);
-        Vector3 pointD = GetPoint(outerRad, heightA, point);
-
-        List<Vector3> vertices = new() { pointA, pointB, pointC, pointD };
-        List<int> triangles = new() { 0, 1, 2, 2, 3, 0 };
-        List<Vector2> uvs = new() {
-            new Vector2(0, 0),
-            new Vector2(1, 0),
-            new Vector2(1, 1),
-            new Vector2(0, 1)
-        };
-
-        if (reverse) vertices.Reverse();
-
-        return new Face(vertices, triangles, uvs);
-    }
-
-    protected Vector3 GetPoint(float radius, float height, int index)
-    {
-        float angle_deg = 60 * index;
-        float angle_rad = Mathf.Deg2Rad * angle_deg;
-        return new Vector3(radius * Mathf.Cos(angle_rad), radius * Mathf.Sin(angle_rad), height);
-    }
-
-    private void CombineFaces()
-    {
-        List<Vector3> vertices = new();
-        List<int> triangles = new();
-        List<Vector2> uvs = new();
-        _colors = new List<Color>();
-
-        for (int i = 0; i < _faces.Count; i++)
-        {
-            int offset = vertices.Count;
-            vertices.AddRange(_faces[i].vertices);
-            uvs.AddRange(_faces[i].uvs);
-
-            // Add color: center vertices are lighter, outer ones are darker
-            _colors.Add(_baseColor);    // A
-            _colors.Add(_baseColor);    // B
-            _colors.Add(edgeColor);     // C
-            _colors.Add(edgeColor);     // D
-
-
-            foreach (int t in _faces[i].triangles)
-                triangles.Add(t + offset);
-        }
+    void BuildMesh() {
+        if (_mf == null) _mf = GetComponent<MeshFilter>();
+        if (_mc == null) _mc = GetComponent<MeshCollider>();
+        if (_mr == null) _mr = GetComponent<MeshRenderer>();
+        if (_mesh == null) _mesh = new Mesh { name = "HexColumn" };
 
         _mesh.Clear();
-        _mesh.SetVertices(vertices);
-        _mesh.SetTriangles(triangles, 0);
-        _mesh.SetUVs(0, uvs);
-        _mesh.SetColors(_colors);
+
+        List<Vector3> v = new();
+        List<int> t = new();
+        List<Color> c = new();
+
+        float displayHeight = columnHeight * heightScale;
+
+        Vector3 centerTop = new Vector3(0f, displayHeight, 0f);
+        Vector3 centerBottom = Vector3.zero;
+
+        int centerTopIndex = v.Count;
+        v.Add(centerTop);
+        c.Add(topColor);
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 corner = GetFlatPoint(i, displayHeight);
+            v.Add(corner);
+            c.Add(topColor);
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int current = centerTopIndex + 1 + i;
+            int next = i == 5 ? centerTopIndex + 1 : current + 1;
+            t.AddRange(new[] { centerTopIndex, current, next });
+        }
+
+        int centerBottomIndex = v.Count;
+        v.Add(centerBottom);
+        c.Add(sideColor);
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 corner = GetFlatPoint(i, 0f);
+            v.Add(corner);
+            c.Add(sideColor);
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int current = centerBottomIndex + 1 + i;
+            int next = i == 5 ? centerBottomIndex + 1 : current + 1;
+            t.AddRange(new[] { centerBottomIndex, next, current });
+        }
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 bottomA = GetFlatPoint(i, 0f);
+            Vector3 topA = GetFlatPoint(i, displayHeight);
+            Vector3 bottomB = GetFlatPoint((i + 1) % 6, 0f);
+            Vector3 topB = GetFlatPoint((i + 1) % 6, displayHeight);
+
+            TriangulateTerracedEdge(v, t, c, bottomA, topA, bottomB, topB);
+        }
+
+        TriangulateCorner(v, t, c);
+
+        _mesh.SetVertices(v);
+        _mesh.SetColors(c);
+        _mesh.SetTriangles(t, 0);
         _mesh.RecalculateNormals();
 
-        Debug.Log($"HexRenderer: Mesh generated with {_mesh.vertexCount} vertices and {_mesh.triangles.Length} triangles");
+        _mf.sharedMesh = _mesh;
+        _mc.sharedMesh = _mesh;
+        if (_mr.sharedMaterial == null && material != null)
+            _mr.sharedMaterial = material;
     }
 
-    public struct Face
-    {
-        public List<Vector3> vertices { get; private set; }
-        public List<int> triangles { get; private set; }
-        public List<Vector2> uvs { get; private set; }
+    void TriangulateTerracedEdge(List<Vector3> v, List<int> t, List<Color> c, Vector3 beginBottom, Vector3 beginTop, Vector3 endBottom, Vector3 endTop) {
+        Vector3 v00 = beginBottom;
+        Vector3 v01 = beginTop;
+        Vector3 v10, v11;
 
-        public Face(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs)
-        {
-            this.vertices = vertices;
-            this.triangles = triangles;
-            this.uvs = uvs;
+        for (int i = 1; i <= terraceSteps; i++) {
+            float hStep = i * horizontalTerraceStepSize;
+            float vStep = i * verticalTerraceStepSize;
+
+            v10 = Vector3.Lerp(beginBottom, endBottom, hStep);
+            v11 = Vector3.Lerp(beginTop, endTop, hStep);
+            v11.y = Mathf.Lerp(beginTop.y, endTop.y, vStep);
+
+            int baseIndex = v.Count;
+
+            v.Add(v00); c.Add(sideColor);
+            v.Add(v01); c.Add(topColor);
+            v.Add(v10); c.Add(sideColor);
+            v.Add(v11); c.Add(topColor);
+
+            t.AddRange(new[] { baseIndex, baseIndex + 1, baseIndex + 2 });
+            t.AddRange(new[] { baseIndex + 2, baseIndex + 1, baseIndex + 3 });
+
+            v00 = v10;
+            v01 = v11;
         }
     }
-    public void SetColor(Color newColor)
-{
-    _baseColor = newColor;
-    DrawMesh();
-}
 
-public void ResetColor()
-{
-    _baseColor = baseColor;
-    DrawMesh();
-}
+    void TriangulateCorner(List<Vector3> v, List<int> t, List<Color> c) {
+        // Ejemplo simple de una esquina (puede mejorarse si se tienen vecinos):
+        Vector3 a = GetFlatPoint(0, columnHeight * heightScale);
+        Vector3 b = GetFlatPoint(1, columnHeight * heightScale);
+        Vector3 cPos = GetFlatPoint(2, columnHeight * heightScale);
 
-        #if UNITY_EDITOR
-private void Update()
-{
-    if (Application.isPlaying && Input.GetKeyDown(KeyCode.R))
-    {
-        DrawMesh();
+        int start = v.Count;
+        v.Add(a); c.Add(topColor);
+        v.Add(b); c.Add(topColor);
+        v.Add(cPos); c.Add(topColor);
+
+        t.AddRange(new[] { start, start + 1, start + 2 });
     }
-}
-#endif
-// Following lines commented where for activating hover and clicked states for Tiles.
-// private void OnMouseEnter()
-//{
-//    _baseColor = edgeColor; // Use a highlight or hover color
- //   DrawMesh();
-//}
 
-//private void OnMouseExit()
-//{
-//    _baseColor = baseColor; // Reset to default
-//    DrawMesh();
-//}
-
-//private void OnMouseDown()
-//{
-//    Debug.Log($"Hex clicked: {gameObject.name}");
-    
-    // Placeholder: simulate crystal planting
-//    _baseColor = Color.cyan;
-//    DrawMesh();
-//}
-
-
-
+    Vector3 GetFlatPoint(int index, float y) {
+        float angle = 60f * index * Mathf.Deg2Rad;
+        return new Vector3(
+            SharedOuterRadius * Mathf.Cos(angle),
+            y,
+            SharedOuterRadius * Mathf.Sin(angle)
+        );
+    }
 }

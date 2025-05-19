@@ -10,6 +10,10 @@ public class ChunkManager : MonoBehaviour
     public int chunkSize = 10;
     public int loadRadius = 1; // Aumentado a 1 para tener vecinos
 
+    [Range(0, 10)]
+    public int unloadRadius = 2; // Si es 0, no descarga nada
+
+
     public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
     private void Awake()
@@ -46,18 +50,32 @@ public class ChunkManager : MonoBehaviour
             ReassignAllChunkBehaviorNeighbors();
         }
 
-        foreach (var coord in loadedChunks.Keys)
+       if (unloadRadius > 0)
         {
-            if (!chunksToKeep.Contains(coord))
+            foreach (var coord in loadedChunks.Keys)
             {
-                toUnload.Add(coord);
+                int dist = Mathf.Max(
+                    Mathf.Abs(coord.x - playerChunkCoord.x),
+                    Mathf.Abs(coord.y - playerChunkCoord.y)
+                );
+
+                if (dist > loadRadius + unloadRadius)
+                {
+                    toUnload.Add(coord);
+                }
             }
         }
 
+
         foreach (var coord in toUnload)
         {
-            loadedChunks.Remove(coord);
+            if (loadedChunks.TryGetValue(coord, out var chunk))
+            {
+                Destroy(chunk);
+                loadedChunks.Remove(coord);
+            }
         }
+
     }
 
     public static Vector2Int WorldToChunkCoord(HexCoordinates coordinates)

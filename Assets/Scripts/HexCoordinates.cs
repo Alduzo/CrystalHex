@@ -36,7 +36,7 @@ public struct HexCoordinates
         float height = Mathf.Sqrt(3f) * hexOuterRadius;
 
         float q = (position.x * 2f / 3f) / hexOuterRadius;
-        float r = (-position.x / 3f + Mathf.Sqrt(3f) / 3f * position.y) / hexOuterRadius;
+        float r = (-position.x / 3f + Mathf.Sqrt(3f) / 3f * position.z) / hexOuterRadius;
 
         return FromFractional(q, r);
     }
@@ -72,19 +72,20 @@ public struct HexCoordinates
     }
 
     public static Vector3 ToWorldPosition(HexCoordinates coord, float outerRadius)
-    {
-        float width = outerRadius * 2f;
-        float height = outerRadius * Mathf.Sqrt(3f);
-        float x = coord.Q * width * 0.75f;
-        float y = coord.R * height;
-
-        if (coord.Q % 2 != 0)
         {
-            y += height / 2f;
+            float width = outerRadius * 2f;
+            float height = outerRadius * Mathf.Sqrt(3f);
+            float x = coord.Q * width * 0.75f;
+            float z = coord.R * height;
+
+            if (coord.Q % 2 != 0)
+            {
+                z += height / 2f;
+            }
+
+            return new Vector3(x, 0f, z); // ← elevación en Y ahora
         }
 
-        return new Vector3(x, y, 0f);
-    }
 
     public static int Distance(HexCoordinates a, HexCoordinates b)
     {

@@ -261,4 +261,10 @@ public class HexBehavior : MonoBehaviour
             }
         }
     }
+    private void OnDestroy()
+    {
+        var tickManager = FindFirstObjectByType<TickManager>();
+        tickManager?.Unregister(this);
+    }
+
 }
