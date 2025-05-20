@@ -28,6 +28,7 @@ public class HexRenderer : MonoBehaviour
     const int terraceSteps = terracesPerSlope * 2 + 1;
     const float horizontalTerraceStepSize = 1f / terraceSteps;
     const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);
+    
 
     void Awake() => BuildMesh();
     void OnEnable() => BuildMesh();
@@ -38,8 +39,12 @@ public class HexRenderer : MonoBehaviour
     }
 #endif
 
-    public void SetHeight(float h) {
-        columnHeight = h;
+    public void SetHeight(float elevationHeight)
+    {
+        columnHeight = elevationHeight;
+
+        // Eleva el objeto entero (afecta mesh + collider combinado)
+      ///transform.position = new Vector3( transform.position.x, elevationHeight, transform.position.z);
         BuildMesh();
     }
 
@@ -53,7 +58,7 @@ public class HexRenderer : MonoBehaviour
         if (_mc == null) _mc = GetComponent<MeshCollider>();
         if (_mr == null) _mr = GetComponent<MeshRenderer>();
         if (_mesh == null) _mesh = new Mesh { name = "HexColumn" };
-
+        
         _mesh.Clear();
 
         List<Vector3> v = new();
@@ -61,6 +66,8 @@ public class HexRenderer : MonoBehaviour
         List<Color> c = new();
 
         float displayHeight = columnHeight * heightScale;
+        float baseOffset = columnHeight * heightScale * 0f;
+
 
         Vector3 centerTop = new Vector3(0f, displayHeight, 0f);
         Vector3 centerBottom = Vector3.zero;
@@ -101,7 +108,7 @@ public class HexRenderer : MonoBehaviour
             Vector3 bottomA = GetFlatPoint(i, 0f);
             Vector3 topA = GetFlatPoint(i, displayHeight);
             Vector3 bottomB = GetFlatPoint((i + 1) % 6, 0f);
-            Vector3 topB = GetFlatPoint((i + 1) % 6, displayHeight);
+           Vector3 topB = GetFlatPoint((i + 1) % 6, displayHeight);
 
             TriangulateTerracedEdge(v, t, c, bottomA, topA, bottomB, topB);
         }
@@ -114,6 +121,9 @@ public class HexRenderer : MonoBehaviour
         _mesh.RecalculateNormals();
 
         _mf.sharedMesh = _mesh;
+
+        // ⚠️ Forzar reinicio del MeshCollider para que refleje el nuevo mesh
+        _mc.sharedMesh = null;
         _mc.sharedMesh = _mesh;
         if (_mr.sharedMaterial == null && material != null)
             _mr.sharedMaterial = material;

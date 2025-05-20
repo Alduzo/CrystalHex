@@ -1,12 +1,18 @@
 using UnityEngine;
+using System.Collections;
 
-public static class ChunkGenerator
+public class ChunkGenerator
 {
+
+
     public static GameObject GenerateChunk(Vector2Int chunkCoord, int chunkSize, GameObject hexPrefab)
     {
         GameObject parent = new GameObject($"Chunk_{chunkCoord.x}_{chunkCoord.y}");
+        parent.layer = LayerMask.NameToLayer("Terrain");
+        parent.tag = "Chunk";
+        Debug.Log($"✅ Chunk generado: {parent.name} | Posición: {parent.transform.position}");
 
-                for (int dx = 0; dx < chunkSize; dx++)
+        for (int dx = 0; dx < chunkSize; dx++)
         {
             for (int dy = 0; dy < chunkSize; dy++)
             {
@@ -19,53 +25,86 @@ public static class ChunkGenerator
                 GameObject hex = Object.Instantiate(hexPrefab, worldPos, Quaternion.identity, parent.transform);
                 hex.name = $"Hex_{globalQ}_{globalR}";
 
+                // Diagnóstico detallado
+                Debug.Log($"🧪 Instanciado {hex.name} con componentes:");
+                Debug.Log($"↳ HexBehavior: {hex.GetComponent<HexBehavior>() != null}");
+                Debug.Log($"↳ HexRenderer: {hex.GetComponent<HexRenderer>() != null}");
+
                 HexBehavior behavior = hex.GetComponent<HexBehavior>();
                 if (behavior != null)
                 {
-                    behavior.coordinates = hexCoord;
-
-                    var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
-                    // Obtener renderer y aplicar visualización de altura y color
-                    var renderer = hex.GetComponent<HexRenderer>();
-                    if (renderer != null)
+                    try
                     {
-                        var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
-                        if (config != null)  // ← buena práctica por si no se encuentra el asset
-                        {
-                            float elevationHeight = hexData.elevation * config.elevationScale;
-                            renderer.SetHeight(elevationHeight);
+                        behavior.coordinates = hexCoord;
 
-                            Material mat = config.GetMaterialFor(hexData.terrainType);
-                            if (mat != null)
-                                renderer.GetComponent<MeshRenderer>().material = mat;
-                        }
-                        else
-                        {
-                            Debug.LogWarning("ChunkMapGameConfig not found in Resources.");
-                        }
-                    }
+                        var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
 
-                    WorldMapManager.Instance.AssignNeighborReferences(hexData);
-
-                    foreach (var neighborData in hexData.neighborRefs)
-                    {
-                        if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+                        var renderer = hex.GetComponent<HexRenderer>();
+                        if (renderer != null)
                         {
-                            Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
-                            if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
+                            var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+                            if (config != null)
                             {
-                                var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
-                                foreach (var other in behaviorList)
+                                float elevationHeight = hexData.elevation * config.elevationScale;
+                                renderer.SetHeight(elevationHeight);
+
+                                Material mat = config.GetMaterialFor(hexData.terrainType);
+                                if (mat != null)
+                                    renderer.GetComponent<MeshRenderer>().material = mat;
+                            }
+                            else
+                            {
+                                Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
+                            }
+                        }
+
+                        WorldMapManager.Instance.AssignNeighborReferences(hexData);
+
+                        foreach (var neighborData in hexData.neighborRefs)
+                        {
+                            if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+                            {
+                                Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
+                                if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
                                 {
-                                    if (other.coordinates.Equals(nData.coordinates))
+                                    var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
+                                    foreach (var other in behaviorList)
                                     {
-                                        behavior.neighbors.Add(other);
-                                        break;
+                                        if (other.coordinates.Equals(nData.coordinates))
+                                        {
+                                            behavior.neighbors.Add(other);
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        var meshFilter = parent.GetComponent<MeshFilter>();
+                        if (meshFilter == null)
+                            meshFilter = parent.AddComponent<MeshFilter>();
+
+                        var meshCollider = parent.GetComponent<MeshCollider>();
+                        if (meshCollider == null)
+                            meshCollider = parent.AddComponent<MeshCollider>();
+
+                        var terrainCollider = parent.GetComponent<TerrainMeshCollider>();
+                        if (terrainCollider == null)
+                            terrainCollider = parent.AddComponent<TerrainMeshCollider>();
+
+                        terrainCollider.CombineHexMeshes();
+                        
+
+                        terrainCollider.ApplyCollider();
                     }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"❌ Error en procesamiento de {hex.name}:\n{ex}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"❌ Hex instanciado sin HexBehavior: {hex.name}");
                 }
             }
         }
@@ -76,13 +115,11 @@ public static class ChunkGenerator
         {
             AssignBehaviorNeighborsFromWorldMap(behavior);
             Debug.Log($"Assigning neighbors to {behavior.name}, found {behavior.neighbors.Count}");
-
         }
 
         return parent;
-
-        
     }
+
 
     public static void AssignNeighbors(GameObject chunkRoot)
     {

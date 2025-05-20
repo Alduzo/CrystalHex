@@ -16,10 +16,42 @@ public class ChunkManager : MonoBehaviour
 
     public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
-    private void Awake()
+
+   
+
+
+   private void Awake()
+{
+    Instance = this;
+    StartCoroutine(DelayedInit());
+}
+
+private IEnumerator DelayedInit()
+{
+    yield return new WaitUntil(() => WorldMapManager.Instance != null);
+
+    Vector2Int initialCoord = new Vector2Int(0, 0);
+    if (!loadedChunks.ContainsKey(initialCoord))
     {
-        Instance = this;
+        GameObject chunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
+        loadedChunks.Add(initialCoord, chunk);
+        Debug.Log("🌱 Chunk inicial generado en (0,0)");
+
+        if (CoroutineDispatcher.Instance != null)
+        {
+            CoroutineDispatcher.Instance.RunCoroutine(DelayApplyCollider(chunk));
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ CoroutineDispatcher no está presente en escena.");
+        }
     }
+}
+
+
+
+
+
 
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
@@ -40,6 +72,18 @@ public class ChunkManager : MonoBehaviour
                     GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
                     loadedChunks[coord] = chunk;
                     anyNewChunks = true;
+
+                    // ✅ Aplicar MeshCollider con retraso leve (usando CoroutineDispatcher)
+                    if (CoroutineDispatcher.Instance != null)
+                    {
+                        CoroutineDispatcher.Instance.RunCoroutine(DelayApplyCollider(chunk));
+                    }
+                    else
+                    {
+                        Debug.LogWarning("⚠️ CoroutineDispatcher no está presente en escena.");
+                    }
+
+
                 }
             }
         }
@@ -50,7 +94,7 @@ public class ChunkManager : MonoBehaviour
             ReassignAllChunkBehaviorNeighbors();
         }
 
-       if (unloadRadius > 0)
+        if (unloadRadius > 0)
         {
             foreach (var coord in loadedChunks.Keys)
             {
@@ -96,4 +140,20 @@ public class ChunkManager : MonoBehaviour
             }
         }
     }
+    public IEnumerator DelayApplyCollider(GameObject parent)
+    {
+        yield return new WaitForSeconds(0.1f); // Espera a que se complete la generación de meshes
+
+        var terrainCollider = parent.GetComponent<TerrainMeshCollider>();
+        if (terrainCollider != null)
+        {
+            terrainCollider.ApplyCollider();
+            Debug.Log($"✅ MeshCollider aplicado al chunk {parent.name}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ No se encontró TerrainMeshCollider en {parent.name}");
+        }
+    }
+
 }

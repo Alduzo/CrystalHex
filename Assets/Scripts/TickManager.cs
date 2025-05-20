@@ -22,7 +22,7 @@ public class TickManager : MonoBehaviour
         {
             tickTimer = 0f;
             Tick();
-            Debug.Log($"Tick occurred at time {Time.time}, current interval: {tickInterval}");
+          ///  Debug.Log($"Tick occurred at time {Time.time}, current interval: {tickInterval}");
         }
     }
 
@@ -43,7 +43,7 @@ public class TickManager : MonoBehaviour
                 break;
         }
 
-        Debug.Log($"Game speed set to {speed} with interval {tickInterval}");
+       /// Debug.Log($"Game speed set to {speed} with interval {tickInterval}");
     }
 
     private void Tick()

@@ -86,6 +86,7 @@ public class HexMapCamera : MonoBehaviour
 				transform.position = pos;
 			}
 		}
+
 	}
 
 	void AdjustZoom(float delta)

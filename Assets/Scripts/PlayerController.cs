@@ -8,21 +8,38 @@ public class PlayerController : MonoBehaviour
 
     private Vector2Int currentChunkCoord;
 
-    IEnumerator Start()
-    {
-        yield return new WaitUntil(() => ChunkManager.Instance != null);
+IEnumerator Start()
+{
+    yield return new WaitUntil(() => ChunkManager.Instance != null);
+    yield return new WaitUntil(() => WorldMapManager.Instance != null);
 
-        // Espera a que WorldMapManager esté inicializado
-        yield return new WaitUntil(() => WorldMapManager.Instance != null);
+    // Espera adicional para asegurarse de que los colisionadores estén listos
+    yield return new WaitForSeconds(0.1f);
 
-        HexCoordinates spawnCoord = FindNonWaterSpawnTile();
-        Vector3 spawnPosition = HexCoordinates.ToWorldPosition(spawnCoord, HexRenderer.SharedOuterRadius);
-        transform.position = spawnPosition;
+    HexCoordinates spawnCoord = FindNonWaterSpawnTile();
+    Vector3 spawnPosition = HexCoordinates.ToWorldPosition(spawnCoord, HexRenderer.SharedOuterRadius);
 
-        Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(spawnCoord);
-        currentChunkCoord = chunkCoord;
-        ChunkManager.Instance.UpdateChunks(chunkCoord);
-    }
+    // Prueba con un raycast para colocarlo sobre el MeshCollider
+    Vector3 rayOrigin = new Vector3(spawnPosition.x, 100f, spawnPosition.z);
+    Debug.DrawRay(rayOrigin, Vector3.down * 200f, Color.red, 5f);
+
+    if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask("Terrain")))
+
+        {
+            transform.position = hit.point + Vector3.up * 0.5f;
+            Debug.Log("✅ Player colocado sobre el terreno usando raycast.");
+        }
+        else
+        {
+            transform.position = spawnPosition + Vector3.up * 0.5f;
+            Debug.LogWarning("⚠️ Player colocado sin detectar colisión con el terreno.");
+        }
+
+    Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(spawnCoord);
+    currentChunkCoord = chunkCoord;
+    ChunkManager.Instance.UpdateChunks(chunkCoord);
+}
+
 
 
 

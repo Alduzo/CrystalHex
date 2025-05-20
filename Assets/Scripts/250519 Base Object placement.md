@@ -1,6 +1,6 @@
 # HexMap – Código fuente consolidado
 
-_Generado el Sat May 17 22:07:07 EST 2025_\n
+_Generado el Mon May 19 23:35:12 EST 2025_\n
 
 ---
 
@@ -23,11 +23,18 @@ public class CameraController : MonoBehaviour
     }
 
     void Update()
-    {
-        // Keyboard movement (WASD / Arrow Keys)
-        float moveX = Input.GetAxis("Horizontal");
-        float moveY = Input.GetAxis("Vertical");
-        transform.position += new Vector3(moveX, moveY, 0) * moveSpeed * Time.deltaTime;
+{
+    // Movimiento horizontal/vertical en X-Z (WASD / flechas)
+    float moveX = Input.GetAxis("Horizontal");
+    float moveZ = Input.GetAxis("Vertical");
+
+    // Movimiento vertical en Y (Q/E)
+    float moveY = 0f;
+    if (Input.GetKey(KeyCode.E)) moveY = 1f;
+    if (Input.GetKey(KeyCode.Q)) moveY = -1f;
+
+    Vector3 move = new Vector3(moveX, moveY, moveZ) * moveSpeed * Time.deltaTime;
+    transform.position += move;
 
         // Zoom with scroll wheel
         float scroll = Input.GetAxis("Mouse ScrollWheel");
@@ -45,14 +52,20 @@ public class CameraController : MonoBehaviour
 ## 📁 ChunkGenerator.cs
 ```csharp
 using UnityEngine;
+using System.Collections;
 
-public static class ChunkGenerator
+public class ChunkGenerator
 {
+
+
     public static GameObject GenerateChunk(Vector2Int chunkCoord, int chunkSize, GameObject hexPrefab)
     {
         GameObject parent = new GameObject($"Chunk_{chunkCoord.x}_{chunkCoord.y}");
+        parent.layer = LayerMask.NameToLayer("Terrain");
+        parent.tag = "Chunk";
+        Debug.Log($"✅ Chunk generado: {parent.name} | Posición: {parent.transform.position}");
 
-                for (int dx = 0; dx < chunkSize; dx++)
+        for (int dx = 0; dx < chunkSize; dx++)
         {
             for (int dy = 0; dy < chunkSize; dy++)
             {
@@ -65,33 +78,86 @@ public static class ChunkGenerator
                 GameObject hex = Object.Instantiate(hexPrefab, worldPos, Quaternion.identity, parent.transform);
                 hex.name = $"Hex_{globalQ}_{globalR}";
 
+                // Diagnóstico detallado
+                Debug.Log($"🧪 Instanciado {hex.name} con componentes:");
+                Debug.Log($"↳ HexBehavior: {hex.GetComponent<HexBehavior>() != null}");
+                Debug.Log($"↳ HexRenderer: {hex.GetComponent<HexRenderer>() != null}");
+
                 HexBehavior behavior = hex.GetComponent<HexBehavior>();
                 if (behavior != null)
                 {
-                    behavior.coordinates = hexCoord;
-
-                    var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
-                    WorldMapManager.Instance.AssignNeighborReferences(hexData);
-
-                    foreach (var neighborData in hexData.neighborRefs)
+                    try
                     {
-                        if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+                        behavior.coordinates = hexCoord;
+
+                        var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
+
+                        var renderer = hex.GetComponent<HexRenderer>();
+                        if (renderer != null)
                         {
-                            Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
-                            if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
+                            var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+                            if (config != null)
                             {
-                                var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
-                                foreach (var other in behaviorList)
+                                float elevationHeight = hexData.elevation * config.elevationScale;
+                                renderer.SetHeight(elevationHeight);
+
+                                Material mat = config.GetMaterialFor(hexData.terrainType);
+                                if (mat != null)
+                                    renderer.GetComponent<MeshRenderer>().material = mat;
+                            }
+                            else
+                            {
+                                Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
+                            }
+                        }
+
+                        WorldMapManager.Instance.AssignNeighborReferences(hexData);
+
+                        foreach (var neighborData in hexData.neighborRefs)
+                        {
+                            if (WorldMapManager.Instance.TryGetHex(neighborData.coordinates, out var nData))
+                            {
+                                Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(nData.coordinates);
+                                if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
                                 {
-                                    if (other.coordinates.Equals(nData.coordinates))
+                                    var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
+                                    foreach (var other in behaviorList)
                                     {
-                                        behavior.neighbors.Add(other);
-                                        break;
+                                        if (other.coordinates.Equals(nData.coordinates))
+                                        {
+                                            behavior.neighbors.Add(other);
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        var meshFilter = parent.GetComponent<MeshFilter>();
+                        if (meshFilter == null)
+                            meshFilter = parent.AddComponent<MeshFilter>();
+
+                        var meshCollider = parent.GetComponent<MeshCollider>();
+                        if (meshCollider == null)
+                            meshCollider = parent.AddComponent<MeshCollider>();
+
+                        var terrainCollider = parent.GetComponent<TerrainMeshCollider>();
+                        if (terrainCollider == null)
+                            terrainCollider = parent.AddComponent<TerrainMeshCollider>();
+
+                        terrainCollider.CombineHexMeshes();
+                        
+
+                        terrainCollider.ApplyCollider();
                     }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogError($"❌ Error en procesamiento de {hex.name}:\n{ex}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"❌ Hex instanciado sin HexBehavior: {hex.name}");
                 }
             }
         }
@@ -102,13 +168,11 @@ public static class ChunkGenerator
         {
             AssignBehaviorNeighborsFromWorldMap(behavior);
             Debug.Log($"Assigning neighbors to {behavior.name}, found {behavior.neighbors.Count}");
-
         }
 
         return parent;
-
-        
     }
+
 
     public static void AssignNeighbors(GameObject chunkRoot)
     {
@@ -184,7 +248,7 @@ public class ChunkGizmoDrawer : MonoBehaviour
         {
             if (child.name.StartsWith("Chunk_"))
             {
-                Bounds bounds = new Bounds(child.position, new Vector3(10f, 10f, 0.1f)); // ajusta según chunkSize
+                Bounds bounds = new Bounds(child.position, new Vector3(10f, 0.1f, 10f)); // ajusta según chunkSize
                 Gizmos.DrawWireCube(bounds.center, bounds.size);
             }
         }
@@ -208,12 +272,48 @@ public class ChunkManager : MonoBehaviour
     public int chunkSize = 10;
     public int loadRadius = 1; // Aumentado a 1 para tener vecinos
 
+    [Range(0, 10)]
+    public int unloadRadius = 2; // Si es 0, no descarga nada
+
+
     public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
-    private void Awake()
+
+   
+
+
+   private void Awake()
+{
+    Instance = this;
+    StartCoroutine(DelayedInit());
+}
+
+private IEnumerator DelayedInit()
+{
+    yield return new WaitUntil(() => WorldMapManager.Instance != null);
+
+    Vector2Int initialCoord = new Vector2Int(0, 0);
+    if (!loadedChunks.ContainsKey(initialCoord))
     {
-        Instance = this;
+        GameObject chunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
+        loadedChunks.Add(initialCoord, chunk);
+        Debug.Log("🌱 Chunk inicial generado en (0,0)");
+
+        if (CoroutineDispatcher.Instance != null)
+        {
+            CoroutineDispatcher.Instance.RunCoroutine(DelayApplyCollider(chunk));
+        }
+        else
+        {
+            Debug.LogWarning("⚠️ CoroutineDispatcher no está presente en escena.");
+        }
     }
+}
+
+
+
+
+
 
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
@@ -234,6 +334,18 @@ public class ChunkManager : MonoBehaviour
                     GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
                     loadedChunks[coord] = chunk;
                     anyNewChunks = true;
+
+                    // ✅ Aplicar MeshCollider con retraso leve (usando CoroutineDispatcher)
+                    if (CoroutineDispatcher.Instance != null)
+                    {
+                        CoroutineDispatcher.Instance.RunCoroutine(DelayApplyCollider(chunk));
+                    }
+                    else
+                    {
+                        Debug.LogWarning("⚠️ CoroutineDispatcher no está presente en escena.");
+                    }
+
+
                 }
             }
         }
@@ -244,18 +356,32 @@ public class ChunkManager : MonoBehaviour
             ReassignAllChunkBehaviorNeighbors();
         }
 
-        foreach (var coord in loadedChunks.Keys)
+        if (unloadRadius > 0)
         {
-            if (!chunksToKeep.Contains(coord))
+            foreach (var coord in loadedChunks.Keys)
             {
-                toUnload.Add(coord);
+                int dist = Mathf.Max(
+                    Mathf.Abs(coord.x - playerChunkCoord.x),
+                    Mathf.Abs(coord.y - playerChunkCoord.y)
+                );
+
+                if (dist > loadRadius + unloadRadius)
+                {
+                    toUnload.Add(coord);
+                }
             }
         }
 
+
         foreach (var coord in toUnload)
         {
-            loadedChunks.Remove(coord);
+            if (loadedChunks.TryGetValue(coord, out var chunk))
+            {
+                Destroy(chunk);
+                loadedChunks.Remove(coord);
+            }
         }
+
     }
 
     public static Vector2Int WorldToChunkCoord(HexCoordinates coordinates)
@@ -276,6 +402,22 @@ public class ChunkManager : MonoBehaviour
             }
         }
     }
+    public IEnumerator DelayApplyCollider(GameObject parent)
+    {
+        yield return new WaitForSeconds(0.1f); // Espera a que se complete la generación de meshes
+
+        var terrainCollider = parent.GetComponent<TerrainMeshCollider>();
+        if (terrainCollider != null)
+        {
+            terrainCollider.ApplyCollider();
+            Debug.Log($"✅ MeshCollider aplicado al chunk {parent.name}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ No se encontró TerrainMeshCollider en {parent.name}");
+        }
+    }
+
 }
 ```
 
@@ -313,6 +455,32 @@ public class ChunkMapGameConfig : ScriptableObject
         }
 
         return _materialMap.TryGetValue(type, out var mat) ? mat : null;
+    }
+}
+```
+
+---
+
+## 📁 CoroutineDispatcher.cs
+```csharp
+using System.Collections;
+using UnityEngine;
+
+public class CoroutineDispatcher : MonoBehaviour
+{
+    public static CoroutineDispatcher Instance;
+
+    void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
+
+    public void RunCoroutine(IEnumerator coroutine)
+    {
+        StartCoroutine(coroutine);
     }
 }
 ```
@@ -868,6 +1036,12 @@ public class HexBehavior : MonoBehaviour
             }
         }
     }
+    private void OnDestroy()
+    {
+        var tickManager = FindFirstObjectByType<TickManager>();
+        tickManager?.Unregister(this);
+    }
+
 }
 ```
 
@@ -913,7 +1087,7 @@ public struct HexCoordinates
         float height = Mathf.Sqrt(3f) * hexOuterRadius;
 
         float q = (position.x * 2f / 3f) / hexOuterRadius;
-        float r = (-position.x / 3f + Mathf.Sqrt(3f) / 3f * position.y) / hexOuterRadius;
+        float r = (-position.x / 3f + Mathf.Sqrt(3f) / 3f * position.z) / hexOuterRadius;
 
         return FromFractional(q, r);
     }
@@ -949,19 +1123,20 @@ public struct HexCoordinates
     }
 
     public static Vector3 ToWorldPosition(HexCoordinates coord, float outerRadius)
-    {
-        float width = outerRadius * 2f;
-        float height = outerRadius * Mathf.Sqrt(3f);
-        float x = coord.Q * width * 0.75f;
-        float y = coord.R * height;
-
-        if (coord.Q % 2 != 0)
         {
-            y += height / 2f;
+            float width = outerRadius * 2f;
+            float height = outerRadius * Mathf.Sqrt(3f);
+            float x = coord.Q * width * 0.75f;
+            float z = coord.R * height;
+
+            if (coord.Q % 2 != 0)
+            {
+                z += height / 2f;
+            }
+
+            return new Vector3(x, 0f, z); // ← elevación en Y ahora
         }
 
-        return new Vector3(x, y, 0f);
-    }
 
     public static int Distance(HexCoordinates a, HexCoordinates b)
     {
@@ -1015,7 +1190,7 @@ public class HexGridLayout : MonoBehaviour
                     yOffset += height / 2f;
                 }
 
-                Vector3 spawnPos = new Vector3(xOffset, yOffset, 0);
+                Vector3 spawnPos = new Vector3(xOffset, 0f, yOffset);
                 GameObject hexObj = Instantiate(hexPrefab, spawnPos, Quaternion.identity, this.transform);
                 hexObj.name = $"Hex_{x}_{y}";
 
@@ -1073,211 +1248,459 @@ public class HexGridLayout : MonoBehaviour
 
 ---
 
+## 📁 HexMapCamera.cs
+```csharp
+﻿using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// Component that controls the singleton camera that navigates the hex map.
+/// </summary>
+public class HexMapCamera : MonoBehaviour
+{
+	[SerializeField]
+	float stickMinZoom, stickMaxZoom;
+
+	[SerializeField]
+	float swivelMinZoom, swivelMaxZoom;
+
+	[SerializeField]
+	float moveSpeedMinZoom, moveSpeedMaxZoom;
+
+	[SerializeField]
+	float rotationSpeed;
+
+	Transform swivel, stick;
+
+	float zoom = 1f;
+	float rotationAngle;
+	static HexMapCamera instance;
+
+	public static bool Locked
+	{
+		set => instance.enabled = !value;
+	}
+
+	public static void ValidatePosition() => instance.AdjustPosition(0f, 0f);
+
+	void Awake()
+	{
+		swivel = transform.GetChild(0);
+		stick = swivel.GetChild(0);
+
+		// Posición inicial forzada
+		swivel.localPosition = new Vector3(0f, 0f, 10f);
+		swivel.localRotation = Quaternion.Euler(30f, 0f, 0f);
+		stick.localPosition = new Vector3(0f, 0f, -12f);
+	}
+
+	void OnEnable()
+	{
+		instance = this;
+		ValidatePosition();
+	}
+
+	void Update()
+	{
+		float zoomDelta = Input.GetAxis("Mouse ScrollWheel");
+		if (zoomDelta != 0f)
+		{
+			AdjustZoom(zoomDelta);
+		}
+
+		float rotationDelta = 0f;
+		if (Input.GetKey(KeyCode.Q)) rotationDelta = -1f;
+		if (Input.GetKey(KeyCode.E)) rotationDelta = 1f;
+		if (rotationDelta != 0f)
+		{
+			AdjustRotation(rotationDelta);
+		}
+
+		float xDelta = 0f;
+		if (Input.GetKey(KeyCode.A)) xDelta = -1f;
+		if (Input.GetKey(KeyCode.D)) xDelta = 1f;
+
+		float zDelta = 0f;
+		if (Input.GetKey(KeyCode.W)) zDelta = 1f;
+		if (Input.GetKey(KeyCode.S)) zDelta = -1f;
+
+		if (xDelta != 0f || zDelta != 0f)
+		{
+			AdjustPosition(xDelta, zDelta);
+		}
+		if (Input.GetKey(KeyCode.C))
+		{
+			Transform player = GameObject.FindWithTag("Player")?.transform;
+			if (player != null)
+			{
+				Vector3 pos = player.position;
+				pos.y = transform.position.y;
+				transform.position = pos;
+			}
+		}
+
+	}
+
+	void AdjustZoom(float delta)
+	{
+		zoom = Mathf.Clamp01(zoom + delta);
+
+		float distance = Mathf.Lerp(stickMinZoom, stickMaxZoom, zoom);
+		stick.localPosition = new Vector3(0f, 0f, distance);
+
+		float angle = Mathf.Lerp(swivelMinZoom, swivelMaxZoom, zoom);
+		swivel.localRotation = Quaternion.Euler(angle, 0f, 0f);
+	}
+
+	void AdjustRotation (float delta)
+	{
+		rotationAngle += delta * rotationSpeed * Time.deltaTime;
+		if (rotationAngle < 0f)
+		{
+			rotationAngle += 360f;
+		}
+		else if (rotationAngle >= 360f)
+		{
+			rotationAngle -= 360f;
+		}
+		transform.localRotation = Quaternion.Euler(0f, rotationAngle, 0f);
+	}
+
+	void AdjustPosition(float xDelta, float zDelta)
+	{
+		Vector3 direction = new Vector3(xDelta, 0f, zDelta).normalized;
+		float damping = Mathf.Max(Mathf.Abs(xDelta), Mathf.Abs(zDelta));
+		float distance = Mathf.Lerp(moveSpeedMinZoom, moveSpeedMaxZoom, zoom) * damping * Time.deltaTime;
+
+		Vector3 position = transform.localPosition;
+		position += direction * distance;
+		transform.localPosition = position;
+	}
+}```
+
+---
+
 ## 📁 HexRenderer.cs
 ```csharp
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
 public class HexRenderer : MonoBehaviour
 {
-    private Mesh _mesh;
-    private MeshFilter _meshFilter;
-    private MeshRenderer _meshRenderer;
+    public static float SharedOuterRadius = 1f;
 
     [Header("Hex Settings")]
     public float innerRadius = 0.5f;
-    public static float SharedOuterRadius = 1f;
-    public float height = 0f;
+    public static float outerRadiusShared = 1f;
+    public float columnHeight = 0f;
 
-    [Header("Visual Settings")]
+    [Header("Visual")]
     public Material material;
-    public Color baseColor = Color.green;
-    private Color _baseColor; // active color used for drawing
-    public Color edgeColor = Color.black;
+    public Color topColor = Color.magenta;
+    public Color sideColor = Color.black;
 
-    private List<Face> _faces;
-    private List<Color> _colors;
+    [Header("Scale Settings")]
+    [Range(0.01f, 1f)] public float heightScale = 0.25f;
 
-    private void Awake()
-    {
-        SetupComponents();
-        DrawMesh();
-        _baseColor = baseColor;
+    Mesh _mesh;
+    MeshFilter _mf;
+    MeshCollider _mc;
+    MeshRenderer _mr;
 
-    }
+    const int terracesPerSlope = 2;
+    const int terraceSteps = terracesPerSlope * 2 + 1;
+    const float horizontalTerraceStepSize = 1f / terraceSteps;
+    const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);
+    
 
-    private void OnEnable()
-    {
-        SetupComponents();
-        DrawMesh();
-    }
+    void Awake() => BuildMesh();
+    void OnEnable() => BuildMesh();
 
-    public void OnValidate()
-    {
 #if UNITY_EDITOR
-        if (!Application.isPlaying) return;
+    void OnValidate() {
+        if (!Application.isPlaying) BuildMesh();
+    }
 #endif
-        SetupComponents();
-        DrawMesh();
+
+    public void SetHeight(float elevationHeight)
+    {
+        columnHeight = elevationHeight;
+
+        // Eleva el objeto entero (afecta mesh + collider combinado)
+      ///transform.position = new Vector3( transform.position.x, elevationHeight, transform.position.z);
+        BuildMesh();
     }
 
-    private void SetupComponents()
-    {
-        if (_meshFilter == null) _meshFilter = GetComponent<MeshFilter>();
-        if (_meshRenderer == null) _meshRenderer = GetComponent<MeshRenderer>();
-        if (_mesh == null)
-        {
-            _mesh = new Mesh { name = "HexMesh_Runtime" };
-            GetComponent<MeshFilter>().mesh = _mesh;
-            GetComponent<MeshCollider>().sharedMesh = _mesh;
-        }
-
-        if (_meshRenderer.sharedMaterial == null && material != null)
-            _meshRenderer.sharedMaterial = material;
+    public void SetColor(Color color) {
+        topColor = color;
+        BuildMesh();
     }
 
-    public void DrawMesh()
-    {
-        _faces = new List<Face>();
-        DrawFaces();
-        CombineFaces();
-        if (TryGetComponent(out MeshCollider col))
-        {
-            col.sharedMesh = null; // reset first
-            col.sharedMesh = _mesh; // reassign updated mesh
-        }
-
-    }
-
-    private void DrawFaces()
-    {
-        for (int point = 0; point < 6; point++)
-        {
-            _faces.Add(CreateFace(innerRadius, SharedOuterRadius, height, height, point));
-        }
-    }
-
-    private Face CreateFace(float innerRad, float outerRad, float heightA, float heightB, int point, bool reverse = false)
-    {
-        Vector3 pointA = GetPoint(innerRad, heightB, point);
-        Vector3 pointB = GetPoint(innerRad, heightB, (point < 5) ? point + 1 : 0);
-        Vector3 pointC = GetPoint(outerRad, heightA, (point < 5) ? point + 1 : 0);
-        Vector3 pointD = GetPoint(outerRad, heightA, point);
-
-        List<Vector3> vertices = new() { pointA, pointB, pointC, pointD };
-        List<int> triangles = new() { 0, 1, 2, 2, 3, 0 };
-        List<Vector2> uvs = new() {
-            new Vector2(0, 0),
-            new Vector2(1, 0),
-            new Vector2(1, 1),
-            new Vector2(0, 1)
-        };
-
-        if (reverse) vertices.Reverse();
-
-        return new Face(vertices, triangles, uvs);
-    }
-
-    protected Vector3 GetPoint(float radius, float height, int index)
-    {
-        float angle_deg = 60 * index;
-        float angle_rad = Mathf.Deg2Rad * angle_deg;
-        return new Vector3(radius * Mathf.Cos(angle_rad), radius * Mathf.Sin(angle_rad), height);
-    }
-
-    private void CombineFaces()
-    {
-        List<Vector3> vertices = new();
-        List<int> triangles = new();
-        List<Vector2> uvs = new();
-        _colors = new List<Color>();
-
-        for (int i = 0; i < _faces.Count; i++)
-        {
-            int offset = vertices.Count;
-            vertices.AddRange(_faces[i].vertices);
-            uvs.AddRange(_faces[i].uvs);
-
-            // Add color: center vertices are lighter, outer ones are darker
-            _colors.Add(_baseColor);    // A
-            _colors.Add(_baseColor);    // B
-            _colors.Add(edgeColor);     // C
-            _colors.Add(edgeColor);     // D
-
-
-            foreach (int t in _faces[i].triangles)
-                triangles.Add(t + offset);
-        }
-
+    void BuildMesh() {
+        if (_mf == null) _mf = GetComponent<MeshFilter>();
+        if (_mc == null) _mc = GetComponent<MeshCollider>();
+        if (_mr == null) _mr = GetComponent<MeshRenderer>();
+        if (_mesh == null) _mesh = new Mesh { name = "HexColumn" };
+        
         _mesh.Clear();
-        _mesh.SetVertices(vertices);
-        _mesh.SetTriangles(triangles, 0);
-        _mesh.SetUVs(0, uvs);
-        _mesh.SetColors(_colors);
+
+        List<Vector3> v = new();
+        List<int> t = new();
+        List<Color> c = new();
+
+        float displayHeight = columnHeight * heightScale;
+        float baseOffset = columnHeight * heightScale * 0f;
+
+
+        Vector3 centerTop = new Vector3(0f, displayHeight, 0f);
+        Vector3 centerBottom = Vector3.zero;
+
+        int centerTopIndex = v.Count;
+        v.Add(centerTop);
+        c.Add(topColor);
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 corner = GetFlatPoint(i, displayHeight);
+            v.Add(corner);
+            c.Add(topColor);
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int current = centerTopIndex + 1 + i;
+            int next = i == 5 ? centerTopIndex + 1 : current + 1;
+            t.AddRange(new[] { centerTopIndex, current, next });
+        }
+
+        int centerBottomIndex = v.Count;
+        v.Add(centerBottom);
+        c.Add(sideColor);
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 corner = GetFlatPoint(i, 0f);
+            v.Add(corner);
+            c.Add(sideColor);
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int current = centerBottomIndex + 1 + i;
+            int next = i == 5 ? centerBottomIndex + 1 : current + 1;
+            t.AddRange(new[] { centerBottomIndex, next, current });
+        }
+
+        for (int i = 0; i < 6; i++) {
+            Vector3 bottomA = GetFlatPoint(i, 0f);
+            Vector3 topA = GetFlatPoint(i, displayHeight);
+            Vector3 bottomB = GetFlatPoint((i + 1) % 6, 0f);
+           Vector3 topB = GetFlatPoint((i + 1) % 6, displayHeight);
+
+            TriangulateTerracedEdge(v, t, c, bottomA, topA, bottomB, topB);
+        }
+
+        TriangulateCorner(v, t, c);
+
+        _mesh.SetVertices(v);
+        _mesh.SetColors(c);
+        _mesh.SetTriangles(t, 0);
         _mesh.RecalculateNormals();
 
-        Debug.Log($"HexRenderer: Mesh generated with {_mesh.vertexCount} vertices and {_mesh.triangles.Length} triangles");
+        _mf.sharedMesh = _mesh;
+
+        // ⚠️ Forzar reinicio del MeshCollider para que refleje el nuevo mesh
+        _mc.sharedMesh = null;
+        _mc.sharedMesh = _mesh;
+        if (_mr.sharedMaterial == null && material != null)
+            _mr.sharedMaterial = material;
     }
 
-    public struct Face
-    {
-        public List<Vector3> vertices { get; private set; }
-        public List<int> triangles { get; private set; }
-        public List<Vector2> uvs { get; private set; }
+    void TriangulateTerracedEdge(List<Vector3> v, List<int> t, List<Color> c, Vector3 beginBottom, Vector3 beginTop, Vector3 endBottom, Vector3 endTop) {
+        Vector3 v00 = beginBottom;
+        Vector3 v01 = beginTop;
+        Vector3 v10, v11;
 
-        public Face(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs)
-        {
-            this.vertices = vertices;
-            this.triangles = triangles;
-            this.uvs = uvs;
+        for (int i = 1; i <= terraceSteps; i++) {
+            float hStep = i * horizontalTerraceStepSize;
+            float vStep = i * verticalTerraceStepSize;
+
+            v10 = Vector3.Lerp(beginBottom, endBottom, hStep);
+            v11 = Vector3.Lerp(beginTop, endTop, hStep);
+            v11.y = Mathf.Lerp(beginTop.y, endTop.y, vStep);
+
+            int baseIndex = v.Count;
+
+            v.Add(v00); c.Add(sideColor);
+            v.Add(v01); c.Add(topColor);
+            v.Add(v10); c.Add(sideColor);
+            v.Add(v11); c.Add(topColor);
+
+            t.AddRange(new[] { baseIndex, baseIndex + 1, baseIndex + 2 });
+            t.AddRange(new[] { baseIndex + 2, baseIndex + 1, baseIndex + 3 });
+
+            v00 = v10;
+            v01 = v11;
         }
     }
-    public void SetColor(Color newColor)
-{
-    _baseColor = newColor;
-    DrawMesh();
-}
 
-public void ResetColor()
-{
-    _baseColor = baseColor;
-    DrawMesh();
-}
+    void TriangulateCorner(List<Vector3> v, List<int> t, List<Color> c) {
+        // Ejemplo simple de una esquina (puede mejorarse si se tienen vecinos):
+        Vector3 a = GetFlatPoint(0, columnHeight * heightScale);
+        Vector3 b = GetFlatPoint(1, columnHeight * heightScale);
+        Vector3 cPos = GetFlatPoint(2, columnHeight * heightScale);
 
-        #if UNITY_EDITOR
-private void Update()
-{
-    if (Application.isPlaying && Input.GetKeyDown(KeyCode.R))
-    {
-        DrawMesh();
+        int start = v.Count;
+        v.Add(a); c.Add(topColor);
+        v.Add(b); c.Add(topColor);
+        v.Add(cPos); c.Add(topColor);
+
+        t.AddRange(new[] { start, start + 1, start + 2 });
+    }
+
+    Vector3 GetFlatPoint(int index, float y) {
+        float angle = 60f * index * Mathf.Deg2Rad;
+        return new Vector3(
+            SharedOuterRadius * Mathf.Cos(angle),
+            y,
+            SharedOuterRadius * Mathf.Sin(angle)
+        );
     }
 }
-#endif
-// Following lines commented where for activating hover and clicked states for Tiles.
-// private void OnMouseEnter()
-//{
-//    _baseColor = edgeColor; // Use a highlight or hover color
- //   DrawMesh();
-//}
+```
 
-//private void OnMouseExit()
-//{
-//    _baseColor = baseColor; // Reset to default
-//    DrawMesh();
-//}
+---
 
-//private void OnMouseDown()
-//{
-//    Debug.Log($"Hex clicked: {gameObject.name}");
-    
-    // Placeholder: simulate crystal planting
-//    _baseColor = Color.cyan;
-//    DrawMesh();
-//}
+## 📁 ObjectPlacement/AutoPlaceOnTerrain.cs
+```csharp
+using UnityEngine;
+using System.Collections;
+
+[DisallowMultipleComponent]
+public class AutoPlaceOnTerrain : MonoBehaviour
+{
+    [SerializeField] private string terrainLayerName = "Terrain";
+    [SerializeField] private float heightOffset = 0.5f;
+    [SerializeField] private int maxAttempts = 30;
+    [SerializeField] private float retryDelay = 0.1f;
+    [SerializeField] private bool debug = false;
+
+    private IEnumerator Start()
+    {
+        int attempts = 0;
+
+        while (attempts < maxAttempts)
+        {
+            if (TryPlaceOnTerrain())
+            {
+                if (debug) Debug.Log($"✅ {gameObject.name} colocado sobre el terreno.");
+                yield break;
+            }
+
+            attempts++;
+            yield return new WaitForSeconds(retryDelay);
+        }
+
+        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
+    }
+
+    private bool TryPlaceOnTerrain()
+    {
+        Vector3 probePosition = new Vector3(transform.position.x, 100f, transform.position.z);
+        if (Physics.Raycast(probePosition, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask(terrainLayerName)))
+        {
+            transform.position = new Vector3(
+                transform.position.x,
+                hit.collider.bounds.max.y + heightOffset,
+                transform.position.z
+            );
+            return true;
+        }
+
+        return false;
+    }
+}
+```
+
+---
+
+## 📁 ObjectPlacement/PlayerPlacementHelper.cs
+```csharp
+using UnityEngine;
+using System.Collections;
+
+public class PlayerPlacementHelper : MonoBehaviour
+{
+    [SerializeField] private string terrainLayerName = "Terrain";
+    [SerializeField] private float heightOffset = 0.5f;
+    [SerializeField] private int maxAttempts = 30;
+    [SerializeField] private float retryDelay = 0.1f;
+
+    private IEnumerator Start()
+    {
+        int attempts = 0;
+
+        while (attempts < maxAttempts)
+        {
+            if (TryPlace())
+            {
+                Debug.Log($"✅ {gameObject.name} colocado sobre el terreno.");
+                yield break;
+            }
+
+            attempts++;
+            yield return new WaitForSeconds(retryDelay);
+        }
+
+        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
+    }
+
+    public bool TryPlace()
+    {
+        Vector3 probePosition = new Vector3(transform.position.x, 100f, transform.position.z);
+        if (Physics.Raycast(probePosition, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask(terrainLayerName)))
+        {
+            Debug.Log($"🔍 Raycast hit {hit.collider.name} at {hit.point}, bounds.max.y = {hit.collider.bounds.max.y}");
+
+            transform.position = new Vector3
+            (
+                transform.position.x,
+                hit.collider.bounds.max.y + heightOffset,
+                transform.position.z
+            );
+
+            return true;
+        }
+
+        return false;
+    }
+}
+```
+
+---
+
+## 📁 ObjectPlacement/UnitGroundFollower.cs
+```csharp
+using UnityEngine;
+
+public class UnitGroundFollower : MonoBehaviour
+{
+    [SerializeField] private string terrainLayer = "Terrain";
+    [SerializeField] private float heightOffset = 1f;
+
+    [SerializeField] private float rotationSmoothSpeed = 5f; // puedes ajustar el valor
 
 
+    void LateUpdate()
+    {
+        Vector3 origin = new Vector3(transform.position.x, 100f, transform.position.z);
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask(terrainLayer)))
+        {
+            // Colocar sobre el terreno
+            transform.position = hit.point + hit.normal * heightOffset;
 
+            // Alinear con la pendiente
+            Quaternion targetRotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * rotationSmoothSpeed);
+        }
+    }
 }
 ```
 
@@ -1288,6 +1711,7 @@ private void Update()
 using UnityEngine;
 using System.Collections;
 
+
 public class PlayerController : MonoBehaviour
 {
     public float moveSpeed = 5f;
@@ -1297,12 +1721,36 @@ public class PlayerController : MonoBehaviour
 IEnumerator Start()
 {
     yield return new WaitUntil(() => ChunkManager.Instance != null);
+    yield return new WaitUntil(() => WorldMapManager.Instance != null);
 
-    HexCoordinates playerHex = HexCoordinates.FromWorldPosition(transform.position, HexRenderer.SharedOuterRadius);
-    Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(playerHex);
+    // Espera adicional para asegurarse de que los colisionadores estén listos
+    yield return new WaitForSeconds(0.1f);
+
+    HexCoordinates spawnCoord = FindNonWaterSpawnTile();
+    Vector3 spawnPosition = HexCoordinates.ToWorldPosition(spawnCoord, HexRenderer.SharedOuterRadius);
+
+    // Prueba con un raycast para colocarlo sobre el MeshCollider
+    Vector3 rayOrigin = new Vector3(spawnPosition.x, 100f, spawnPosition.z);
+    Debug.DrawRay(rayOrigin, Vector3.down * 200f, Color.red, 5f);
+
+    if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask("Terrain")))
+
+        {
+            transform.position = hit.point + Vector3.up * 0.5f;
+            Debug.Log("✅ Player colocado sobre el terreno usando raycast.");
+        }
+        else
+        {
+            transform.position = spawnPosition + Vector3.up * 0.5f;
+            Debug.LogWarning("⚠️ Player colocado sin detectar colisión con el terreno.");
+        }
+
+    Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(spawnCoord);
     currentChunkCoord = chunkCoord;
     ChunkManager.Instance.UpdateChunks(chunkCoord);
 }
+
+
 
 
 
@@ -1311,34 +1759,47 @@ IEnumerator Start()
         float h = 0f;
         float v = 0f;
 
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) h = -1f;
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) h = 1f;
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) v = 1f;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) v = -1f;
+        if (Input.GetKey(KeyCode.LeftArrow)) h = -1f;
+        if (Input.GetKey(KeyCode.RightArrow)) h = 1f;
+        if (Input.GetKey(KeyCode.UpArrow)) v = 1f;
+        if (Input.GetKey(KeyCode.DownArrow)) v = -1f;
 
 
-        Vector3 move = new Vector3(h, v, 0f) * moveSpeed * Time.deltaTime;
+
+        Vector3 move = new Vector3(h, 0f, v) * moveSpeed * Time.deltaTime;
         transform.position += move;
 
         UpdateChunkLoading();
     }
 
     void UpdateChunkLoading(bool force = false)
-        {
-            HexCoordinates playerHex = HexCoordinates.FromWorldPosition(transform.position, HexRenderer.SharedOuterRadius);
-            Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(playerHex);
+    {
+        HexCoordinates playerHex = HexCoordinates.FromWorldPosition(transform.position, HexRenderer.SharedOuterRadius);
+        Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(playerHex);
 
-            if (force || chunkCoord != currentChunkCoord)
+        if (force || chunkCoord != currentChunkCoord)
+        {
+            Debug.Log("Player moved to chunk " + chunkCoord);
+            currentChunkCoord = chunkCoord;
+            ChunkManager.Instance.UpdateChunks(chunkCoord);
+        }
+    }
+    HexCoordinates FindNonWaterSpawnTile()
+    {
+        foreach (var hex in WorldMapManager.Instance.GetAllHexes())
+        {
+            if (hex.terrainType != TerrainType.OceanDeep && hex.terrainType != TerrainType.OceanShallow)
             {
-                Debug.Log("Player moved to chunk " + chunkCoord);
-                currentChunkCoord = chunkCoord;
-                ChunkManager.Instance.UpdateChunks(chunkCoord);
+                return hex.coordinates;
             }
         }
 
-    
-}
-```
+        Debug.LogWarning("No suitable land tile found! Defaulting to (0,0).");
+        return new HexCoordinates(0, 0);
+    }
+
+
+}```
 
 ---
 
@@ -1550,8 +2011,8 @@ public class TickManager : MonoBehaviour
     private float tickTimer;
     private float tickInterval;
 
-    public List<HexBehavior> hexesToTick = new();
-    public GameSpeed speed = GameSpeed.Fast;
+    public List<HexBehavior> WorldTickSystem = new();
+    public GameSpeed speed = GameSpeed.Slow;
 
     private void Start()
     {
@@ -1566,7 +2027,7 @@ public class TickManager : MonoBehaviour
         {
             tickTimer = 0f;
             Tick();
-            Debug.Log($"Tick occurred at time {Time.time}, current interval: {tickInterval}");
+          ///  Debug.Log($"Tick occurred at time {Time.time}, current interval: {tickInterval}");
         }
     }
 
@@ -1587,12 +2048,12 @@ public class TickManager : MonoBehaviour
                 break;
         }
 
-        Debug.Log($"Game speed set to {speed} with interval {tickInterval}");
+       /// Debug.Log($"Game speed set to {speed} with interval {tickInterval}");
     }
 
     private void Tick()
     {
-        foreach (var hex in hexesToTick)
+        foreach (var hex in WorldTickSystem)
         {
             hex.OnTick();
         }
@@ -1600,8 +2061,46 @@ public class TickManager : MonoBehaviour
 
     public void Register(HexBehavior hex)
     {
-        if (!hexesToTick.Contains(hex))
-            hexesToTick.Add(hex);
+        if (!WorldTickSystem.Contains(hex))
+            WorldTickSystem.Add(hex);
+    }
+
+    public void Unregister(HexBehavior hex)
+{
+    if (WorldTickSystem.Contains(hex))
+        WorldTickSystem.Remove(hex);
+}
+
+}
+```
+
+---
+
+## 📁 WorldLogic/ChunkMapConfigController.cs
+```csharp
+using UnityEngine;
+
+public class ChunkMapConfigController : MonoBehaviour
+{
+    public ChunkMapGameConfig config;
+
+    [Range(0f, 50f)]
+    public float elevationScale = 1f;
+
+    void OnValidate()
+    {
+        if (config != null)
+        {
+            config.elevationScale = elevationScale;
+        }
+    }
+
+    void Start()
+    {
+        if (config != null)
+        {
+            elevationScale = config.elevationScale;
+        }
     }
 }
 ```
@@ -1613,7 +2112,20 @@ public class TickManager : MonoBehaviour
 using System.Collections.Generic;
 
 
-public enum TerrainType { Plains, Mountains, Forest, Water }
+
+
+public enum TerrainType
+{
+    OceanDeep,
+    OceanShallow,
+    Beach,
+    Plains,
+    Hills,
+    Valley,
+    Mountains,
+    Forest
+}
+
 public enum HexType { Natural, Rural, Urban }
 public enum ResourceType { Minerals, Wood, Food, Water, Energy }
 
@@ -1651,11 +2163,77 @@ public class PerlinSettings : ScriptableObject
     public float elevationFreq = 0.02f;
     public int elevationSeedOffset = 1000;
 
+[Header("Anomaly Settings")]
+    [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
+    [Range(0f, 1f)] public float anomalyStrength = 0.25f;
+    public float anomalyFrequency = 0.1f;
+    public int anomalySeedOffset = 5000;
     public float moistureFreq = 0.03f;
     public int moistureSeedOffset = 2000;
 
     public float tempFreq = 0.015f;
     public int tempSeedOffset = 3000;
+
+
+}
+```
+
+---
+
+## 📁 WorldLogic/PerlinSettingsController.cs
+```csharp
+using UnityEngine;
+
+public class PerlinSettingsController : MonoBehaviour
+{
+    public PerlinSettings perlinSettings;
+
+    [Range(0.001f, 5f)] public float elevationFreq = 0.02f;
+    [Range(0.001f, 1f)] public float moistureFreq = 0.03f;
+    [Range(0.001f, 1f)] public float tempFreq = 0.015f;
+
+    public int elevationSeedOffset = 1000;
+    public int moistureSeedOffset = 2000;
+    public int tempSeedOffset = 3000;
+
+    void OnValidate()
+    {
+        if (perlinSettings != null)
+        {
+            perlinSettings.elevationFreq = elevationFreq;
+            perlinSettings.moistureFreq = moistureFreq;
+            perlinSettings.tempFreq = tempFreq;
+
+            perlinSettings.elevationSeedOffset = elevationSeedOffset;
+            perlinSettings.moistureSeedOffset = moistureSeedOffset;
+            perlinSettings.tempSeedOffset = tempSeedOffset;
+        }
+    }
+
+    void Start()
+    {
+        if (perlinSettings != null)
+        {
+            elevationFreq = perlinSettings.elevationFreq;
+            moistureFreq = perlinSettings.moistureFreq;
+            tempFreq = perlinSettings.tempFreq;
+
+            elevationSeedOffset = perlinSettings.elevationSeedOffset;
+            moistureSeedOffset = perlinSettings.moistureSeedOffset;
+            tempSeedOffset = perlinSettings.tempSeedOffset;
+        }
+    }
+
+    [Header("Anomaly Settings")]
+    [Range(0f, 1f)]
+    public float anomalyStrength = 0.25f;
+
+    [Range(0f, 1f)]
+    public float anomalyThreshold = 0.15f;
+
+    public float anomalyFrequency = 0.1f;
+    public int anomalySeedOffset = 5000;
+
 }
 ```
 
@@ -1665,6 +2243,7 @@ public class PerlinSettings : ScriptableObject
 ```csharp
 using UnityEngine;
 
+
 public static class PerlinUtility
 {
     public static float Perlin(HexCoordinates coord, float frequency, int seedOffset)
@@ -1672,6 +2251,163 @@ public static class PerlinUtility
         float nx = (coord.Q + seedOffset) * frequency;
         float ny = (coord.R + seedOffset) * frequency;
         return Mathf.PerlinNoise(nx, ny);
+    }
+
+    public static float FractalPerlin(HexCoordinates coord, float baseFreq, int octaves, float lacunarity, float persistence, int seedOffset)
+    {
+        float total = 0f;
+        float amplitude = 1f;
+        float frequency = baseFreq;
+        float maxValue = 0f;
+
+        for (int i = 0; i < octaves; i++)
+        {
+            float nx = (coord.Q + seedOffset) * frequency;
+            float ny = (coord.R + seedOffset) * frequency;
+            total += Mathf.PerlinNoise(nx, ny) * amplitude;
+
+            maxValue += amplitude;
+            amplitude *= persistence;
+            frequency *= lacunarity;
+        }
+
+        return total / maxValue;
+    }
+
+   public static float ApplyElevationAnomaly(
+    HexCoordinates coord,
+    float baseElevation,
+    float anomalyFreq,
+    float anomalyThreshold,
+    float anomalyStrength,
+    int seedOffset)
+{
+    float noise = Mathf.PerlinNoise(
+        (coord.Q + seedOffset) * anomalyFreq,
+        (coord.R + seedOffset) * anomalyFreq
+    );
+
+    if (noise > 1f - anomalyThreshold)
+        return baseElevation + anomalyStrength;
+
+    if (noise < anomalyThreshold)
+        return baseElevation - anomalyStrength;
+
+    return baseElevation;
+}
+
+
+}
+```
+
+---
+
+## 📁 WorldLogic/TerrainMeshCollider.cs
+```csharp
+using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
+
+
+[RequireComponent(typeof(MeshFilter), typeof(MeshCollider))]
+public class TerrainMeshCollider : MonoBehaviour
+{
+    public void ApplyCollider()
+    {
+        MeshCollider mc = GetComponent<MeshCollider>();
+        if (mc == null)
+        {
+            mc = gameObject.AddComponent<MeshCollider>();
+        }
+
+        Mesh combinedMesh = GetComponent<MeshFilter>().sharedMesh;
+        mc.sharedMesh = combinedMesh;
+
+        if (combinedMesh != null)
+        {
+            Debug.Log($"✅ MeshCollider asignado con mesh de {combinedMesh.vertexCount} vértices en {name}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ No se pudo asignar collider porque el mesh combinado es null en {name}");
+        }
+    }
+
+
+
+    public void CombineHexMeshes()
+    {
+        MeshFilter[] meshFilters = GetComponentsInChildren<MeshFilter>();
+        Debug.Log($"🔍 Encontrados {meshFilters.Length} MeshFilters en hijos del chunk {name}");
+
+        List<CombineInstance> combineList = new List<CombineInstance>();
+
+        foreach (var mf in meshFilters)
+        {
+            if (mf == GetComponent<MeshFilter>())
+            {
+                Debug.Log($"🟡 Saltando MeshFilter del chunk root: {mf.name}");
+                continue;
+            }
+
+            if (mf.sharedMesh == null)
+            {
+                Debug.LogWarning($"❌ MeshFilter sin mesh asignado: {mf.name}");
+                continue;
+            }
+
+            CombineInstance ci = new CombineInstance
+            {
+                mesh = mf.sharedMesh,
+                transform = mf.transform.localToWorldMatrix
+            };
+            combineList.Add(ci);
+        }
+
+        if (combineList.Count == 0)
+        {
+            Debug.LogWarning($"❌ No hay meshes válidos para combinar en los hijos de {name}.");
+            return;
+        }
+
+        Mesh combinedMesh = new Mesh();
+        combinedMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        combinedMesh.CombineMeshes(combineList.ToArray(), true, true);
+
+        GetComponent<MeshFilter>().sharedMesh = combinedMesh;
+        Debug.Log($"✅ Mesh combinado con {combineList.Count} sub-meshes en {name}.");
+    }
+
+
+
+}
+```
+
+---
+
+## 📁 WorldLogic/TerrainPlacementHelper.cs
+```csharp
+using UnityEngine;
+
+public class TerrainPlacementHelper : MonoBehaviour
+{
+    [Header("Configuración")]
+    public LayerMask terrainLayer; // Asegúrate que el terreno esté en este layer
+    public float placementHeightOffset = 0.5f;
+
+    public bool PlacePrefabOnTerrain(GameObject prefab, Vector3 targetXZPosition)
+    {
+        // Dispara un rayo desde arriba para encontrar el punto sobre el terreno
+        Ray ray = new Ray(new Vector3(targetXZPosition.x, 100f, targetXZPosition.z), Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, 200f, terrainLayer))
+        {
+            Vector3 placePos = hit.point + Vector3.up * placementHeightOffset;
+            Instantiate(prefab, placePos, Quaternion.identity);
+            return true;
+        }
+
+        Debug.LogWarning("No se encontró terreno en esa posición.");
+        return false;
     }
 }
 ```
@@ -1685,7 +2421,7 @@ using UnityEngine;
 
 public class WorldMapManager : MonoBehaviour
 {
-        // Asigna referencias activas a vecinos existentes
+    // Asigna referencias activas a vecinos existentes
     public void AssignNeighborReferences(HexData hex)
     {
         hex.neighborRefs.Clear();
@@ -1729,15 +2465,50 @@ public class WorldMapManager : MonoBehaviour
         hex.coordinates = coord;
 
         // Capas Perlin
-        hex.elevation = PerlinUtility.Perlin(coord, perlinSettings.elevationFreq, perlinSettings.elevationSeedOffset + seed);
+        float baseElevation = PerlinUtility.FractalPerlin(
+    coord,
+    perlinSettings.elevationFreq,
+    4,           // octaves
+    2f,          // lacunarity
+    0.5f,        // persistence
+    perlinSettings.elevationSeedOffset + seed
+);
+
+float finalElevation = PerlinUtility.ApplyElevationAnomaly(
+    coord,
+    baseElevation,
+    perlinSettings.anomalyFrequency,
+    perlinSettings.anomalyThreshold,
+    perlinSettings.anomalyStrength,
+    perlinSettings.anomalySeedOffset + seed
+);
+
+hex.elevation = finalElevation;
+
+
+
         hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.moistureSeedOffset + seed);
         hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.tempSeedOffset + seed);
 
         // Bioma inicial provisional
-        hex.terrainType = hex.elevation < 0.25f ? TerrainType.Water :
-                          hex.elevation > 0.8f ? TerrainType.Mountains :
-                          hex.moisture > 0.6f ? TerrainType.Forest :
-                          TerrainType.Plains;
+        if (hex.elevation < 0.08f)
+            hex.terrainType = TerrainType.OceanDeep;
+        else if (hex.elevation < 0.16f)
+            hex.terrainType = TerrainType.OceanShallow;
+        else if (hex.elevation < 0.22f)
+            hex.terrainType = TerrainType.Beach;
+        else if (hex.elevation < 0.38f)
+            hex.terrainType = TerrainType.Plains;
+        else if (hex.elevation < 0.52f)
+            hex.terrainType = TerrainType.Valley;
+        else if (hex.elevation < 0.68f)
+            hex.terrainType = TerrainType.Forest;
+        else if (hex.elevation < 0.82f)
+            hex.terrainType = TerrainType.Hills;
+        else
+            hex.terrainType = TerrainType.Mountains;
+
+
 
         // Asignación lógica de vecinos (coordenadas)
         foreach (HexCoordinates neighbor in coord.GetAllNeighbors())
@@ -1775,5 +2546,42 @@ public class WorldMapManager : MonoBehaviour
     {
         return worldMap.Values;
     }
+
+    private TerrainType DetermineTerrainType(HexData hex)
+    {
+        float elevation = hex.elevation;
+
+        if (elevation < 0.1f) return TerrainType.OceanDeep;
+        if (elevation < 0.25f) return TerrainType.OceanShallow;
+
+        // Cálculo de pendiente
+        float slopeSum = 0f;
+        int count = 0;
+
+        foreach (var neighborCoord in hex.neighborCoords)
+        {
+            if (worldMap.TryGetValue(neighborCoord, out var neighbor))
+            {
+                slopeSum += Mathf.Abs(neighbor.elevation - elevation);
+                count++;
+            }
+        }
+
+        float avgSlope = (count > 0) ? slopeSum / count : 0f;
+
+        if (avgSlope < 0.02f) return TerrainType.Plains;
+        if (avgSlope < 0.06f) return TerrainType.Hills;
+        if (elevation > 0.8f) return TerrainType.Mountains;
+        if (avgSlope >= 0.06f && elevation < 0.5f) return TerrainType.Valley;
+
+        return TerrainType.Plains; // Fallback
+    }
+
+    public static bool IsWater(TerrainType type)
+    {
+        return type == TerrainType.OceanDeep || type == TerrainType.OceanShallow;
+    }
+
+
 
 }```
