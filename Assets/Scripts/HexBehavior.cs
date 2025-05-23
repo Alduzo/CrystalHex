@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using System.Collections;
 
 public enum HexState { Empty, Influenced, Seeded, Growing, Full }
 public enum PlayerType { Red, Blue, Green, Yellow, Purple, Orange }
@@ -74,8 +75,17 @@ public class HexBehavior : MonoBehaviour
     private void Start()
     {
         var tickManager = Object.FindFirstObjectByType<TickManager>();
+        StartCoroutine(DelayedRegister());
+
+    }
+
+    private IEnumerator DelayedRegister()
+    {
+        yield return new WaitForSeconds(0.2f); // Asegura que todos los vecinos estén asignados
+        var tickManager = Object.FindFirstObjectByType<TickManager>();
         tickManager?.Register(this);
     }
+
 
     private void OnMouseDown()
     {

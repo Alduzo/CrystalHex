@@ -1,47 +1,38 @@
 using UnityEngine;
-using System.Collections;
 
 [DisallowMultipleComponent]
 public class AutoPlaceOnTerrain : MonoBehaviour
 {
     [SerializeField] private string terrainLayerName = "Terrain";
-    [SerializeField] private float heightOffset = 0.5f;
-    [SerializeField] private int maxAttempts = 30;
-    [SerializeField] private float retryDelay = 0.1f;
+    [SerializeField] private float heightOffset = 0.25f;
+    [SerializeField] private float placementDetectionRadius = 5.0f;
     [SerializeField] private bool debug = false;
 
-    private IEnumerator Start()
+    public bool TryPlace()
     {
-        int attempts = 0;
+        Debug.Log($"📌 {name} está intentando colocarse desde posición: {transform.position}");
 
-        while (attempts < maxAttempts)
+        Collider[] colliders = Physics.OverlapSphere(transform.position, placementDetectionRadius, LayerMask.GetMask(terrainLayerName));
+        Debug.Log($"🔎 {name}: {colliders.Length} colisionadores detectados en layer {terrainLayerName}");
+
+        foreach (var col in colliders)
         {
-            if (TryPlaceOnTerrain())
+            Debug.Log($" - 🎯 Collider: {col.name}");
+
+            HexRenderer hex = col.GetComponentInParent<HexRenderer>();
+            if (hex == null)
             {
-                if (debug) Debug.Log($"✅ {gameObject.name} colocado sobre el terreno.");
-                yield break;
+                Debug.Log($" - ⛔ No es HexRenderer");
+                continue;
             }
 
-            attempts++;
-            yield return new WaitForSeconds(retryDelay);
-        }
+            Debug.Log($" - ✅ HexRenderer válido: {hex.name}");
 
-        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
-    }
-
-    private bool TryPlaceOnTerrain()
-    {
-        Vector3 probePosition = new Vector3(transform.position.x, 100f, transform.position.z);
-        if (Physics.Raycast(probePosition, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask(terrainLayerName)))
-        {
-            transform.position = new Vector3(
-                transform.position.x,
-                hit.collider.bounds.max.y + heightOffset,
-                transform.position.z
-            );
+            TerrainUtils.SnapToHexCenterXYZ(transform, hex, heightOffset);
             return true;
         }
 
+        Debug.LogWarning($"⚠️ {name} no pudo colocarse sobre ningún Hex válido.");
         return false;
     }
 }

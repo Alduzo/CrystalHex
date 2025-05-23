@@ -4,14 +4,19 @@ using System.Collections;
 public class PlayerPlacementHelper : MonoBehaviour
 {
     [SerializeField] private string terrainLayerName = "Terrain";
-    [SerializeField] private float heightOffset = 0.5f;
+    [SerializeField] private float heightOffset = 0.3f;
     [SerializeField] private int maxAttempts = 30;
     [SerializeField] private float retryDelay = 0.1f;
+    [SerializeField] private float placementDetectionRadius = 5.0f;
 
     private IEnumerator Start()
     {
-        int attempts = 0;
+        yield return new WaitUntil(() => WorldMapManager.Instance != null);
+        yield return new WaitUntil(() => ChunkManager.Instance != null);
+        yield return new WaitUntil(() => ChunkManager.Instance.loadedChunks.Count > 0);
+        yield return new WaitForSeconds(3f); // Let hexes initialize
 
+        int attempts = 0;
         while (attempts < maxAttempts)
         {
             if (TryPlace())
@@ -24,23 +29,30 @@ public class PlayerPlacementHelper : MonoBehaviour
             yield return new WaitForSeconds(retryDelay);
         }
 
-        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
+        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre ningún Hex válido tras {maxAttempts} intentos.");
     }
 
     public bool TryPlace()
     {
-        Vector3 probePosition = new Vector3(transform.position.x, 100f, transform.position.z);
-        if (Physics.Raycast(probePosition, Vector3.down, out RaycastHit hit, 200f, LayerMask.GetMask(terrainLayerName)))
+        Debug.Log($"📌 {name} está intentando colocarse desde posición: {transform.position}");
+
+        Collider[] colliders = Physics.OverlapSphere(transform.position, placementDetectionRadius, LayerMask.GetMask(terrainLayerName));
+        Debug.Log($"🔎 {name}: {colliders.Length} colisionadores detectados en layer {terrainLayerName}");
+
+        foreach (var col in colliders)
         {
-            Debug.Log($"🔍 Raycast hit {hit.collider.name} at {hit.point}, bounds.max.y = {hit.collider.bounds.max.y}");
+            Debug.Log($" - 🎯 Collider: {col.name}");
 
-            transform.position = new Vector3
-            (
-                transform.position.x,
-                hit.collider.bounds.max.y + heightOffset,
-                transform.position.z
-            );
+            var hex = col.GetComponentInParent<HexRenderer>();
+            if (hex == null)
+            {
+                Debug.Log($" - ⛔ No es HexRenderer");
+                continue;
+            }
 
+            Debug.Log($" - ✅ HexRenderer válido: {hex.name}");
+
+            TerrainUtils.SnapToHexCenterXYZ(transform, hex, heightOffset);
             return true;
         }
 
