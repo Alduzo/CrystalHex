@@ -110,8 +110,8 @@ public class HexMapCamera : MonoBehaviour
 
         // --- VERTICAL ZOOM (Y-level) (E/R Keys) ---
         float yMoveDelta = 0f;
-        if (Input.GetKey(KeyCode.E)) yMoveDelta = -1f; // E to zoom in (move camera down)
-        if (Input.GetKey(KeyCode.R)) yMoveDelta = 1f;  // R to zoom out (move camera up)
+        if (Input.GetKey(KeyCode.O)) yMoveDelta = -1f; // E to zoom in (move camera down)
+        if (Input.GetKey(KeyCode.L)) yMoveDelta = 1f;  // R to zoom out (move camera up)
 
         if (yMoveDelta != 0f)
         {

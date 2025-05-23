@@ -24,18 +24,21 @@ public class PlayerController : MonoBehaviour
         UpdateChunkLoading();
     }
 
-    void HandleKeyboardMovement()
-    {
-        if (Time.time - lastMoveTime < moveCooldown)
-            return;
+   void HandleKeyboardMovement()
+{
+    if (Time.time - lastMoveTime < moveCooldown)
+        return;
 
-        if (Input.GetKeyDown(KeyCode.W)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NE));
-        if (Input.GetKeyDown(KeyCode.E)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.E));
-        if (Input.GetKeyDown(KeyCode.D)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SE));
-        if (Input.GetKeyDown(KeyCode.S)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SW));
-        if (Input.GetKeyDown(KeyCode.A)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.W));
-        if (Input.GetKeyDown(KeyCode.Q)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NW));
-    }
+    if (Input.GetKeyDown(KeyCode.W)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NW));   // Norte visual
+    if (Input.GetKeyDown(KeyCode.E)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NE));   // Noreste
+    if (Input.GetKeyDown(KeyCode.D)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SE));   // Sureste
+    if (Input.GetKeyDown(KeyCode.S)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SW));   // Sur
+    if (Input.GetKeyDown(KeyCode.A)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.W));    // Suroeste
+    if (Input.GetKeyDown(KeyCode.Q)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.E));    // Noroeste
+}
+
+
+
 
     void MoveTo(HexCoordinates newCoord)
     {

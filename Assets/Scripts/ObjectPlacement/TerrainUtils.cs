@@ -12,35 +12,40 @@ public static class TerrainUtils
     /// <param name="hexRenderer">The HexRenderer of the target hex.</param>
     /// <param name="verticalOffset">Additional offset above the hex's visual top.</param>
     public static void SnapToHexTopFlat(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
+{
+    if (objectTransform == null)
     {
-        if (objectTransform == null)
-        {
-            Debug.LogWarning("⚠️ SnapToHexTopFlat falló: objectTransform es null.");
-            return;
-        }
-
-        if (hexRenderer == null)
-        {
-            Debug.LogWarning($"⚠️ SnapToHexTopFlat falló: hexRenderer es null para {objectTransform.name}.");
-            return;
-        }
-
-        Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
-        if (objectRenderer == null)
-        {
-            Debug.LogWarning($"❌ {objectTransform.name} no tiene Renderer hijo visible. No se puede alinear.");
-            return;
-        }
-
-        float objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
-        float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
-
-        Vector3 newPos = objectTransform.position;
-        newPos.y = targetY;
-        objectTransform.position = newPos;
-
-        Debug.Log($"📍 {objectTransform.name} alineado a Y={targetY:F3} sobre {hexRenderer.name} (VisualTopY={hexRenderer.VisualTopY:F3}, offset={verticalOffset:F3})");
+        Debug.LogWarning("⚠️ SnapToHexTopFlat falló: objectTransform es null.");
+        return;
     }
+
+    if (hexRenderer == null)
+    {
+        Debug.LogWarning($"⚠️ SnapToHexTopFlat falló: hexRenderer es null para {objectTransform.name}.");
+        return;
+    }
+
+    Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
+    if (objectRenderer == null)
+    {
+        Debug.LogWarning($"❌ {objectTransform.name} no tiene Renderer hijo visible. No se puede alinear.");
+        return;
+    }
+
+    float objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
+    float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
+
+    Vector3 hexPos = hexRenderer.transform.position;
+
+    objectTransform.position = new Vector3(
+        hexPos.x,
+        targetY,
+        hexPos.z
+    );
+
+    Debug.Log($"📍 {objectTransform.name} alineado a ({hexPos.x:F2}, {targetY:F2}, {hexPos.z:F2}) sobre {hexRenderer.name} (VisualTopY={hexRenderer.VisualTopY:F3}, offset={verticalOffset:F3})");
+}
+
 
 
     /// <summary>

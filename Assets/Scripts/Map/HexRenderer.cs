@@ -173,4 +173,36 @@ public class HexRenderer : MonoBehaviour
 
     }
     
+   void OnDrawGizmos()
+    {
+        if (!HexBorderVisualizer.ShowBorders) return;
+
+        Gizmos.color = HexBorderVisualizer.BorderColor;
+
+        float outerRadius = HexRenderer.SharedOuterRadius;
+        float yOffset = HexBorderVisualizer.HeightOffset;
+        Vector3 center = transform.position + Vector3.up * yOffset;
+
+        for (int i = 0; i < 6; i++)
+        {
+            float angle1 = Mathf.Deg2Rad * (60f * i);
+            float angle2 = Mathf.Deg2Rad * (60f * (i + 1));
+
+            Vector3 corner1 = new Vector3(
+                center.x + outerRadius * Mathf.Cos(angle1),
+                center.y,
+                center.z + outerRadius * Mathf.Sin(angle1)
+            );
+            Vector3 corner2 = new Vector3(
+                center.x + outerRadius * Mathf.Cos(angle2),
+                center.y,
+                center.z + outerRadius * Mathf.Sin(angle2)
+            );
+
+            Gizmos.DrawLine(corner1, corner2);
+        }
+    }
+
+
+    
 }

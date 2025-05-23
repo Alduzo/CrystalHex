@@ -104,7 +104,7 @@ public class ChunkGenerator
                     {
                         Debug.LogWarning("⚠️ No se encontró el prefab en Resources/TerrainObjects/Leaf_Oak");
                     }
-                    else if ((globalQ + globalR) % 5 == 0)
+                    else if (Random.value < 0.05f)
                     {
                         CoroutineDispatcher.Instance?.RunCoroutine(DelayedPlaceFeature(behavior, testPrefab));
                     }

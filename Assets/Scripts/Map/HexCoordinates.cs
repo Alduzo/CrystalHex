@@ -103,14 +103,16 @@ public struct HexCoordinates
 
     public HexCoordinates GetNeighbor(HexDirection direction)
 {
+    bool isEven = Q % 2 == 0;
+
     switch (direction)
     {
-        case HexDirection.NE: return new HexCoordinates(Q + 1, R);
-        case HexDirection.E:  return new HexCoordinates(Q + 1, R - 1);
-        case HexDirection.SE: return new HexCoordinates(Q,     R - 1);
-        case HexDirection.SW: return new HexCoordinates(Q - 1, R);
-        case HexDirection.W:  return new HexCoordinates(Q - 1, R + 1);
-        case HexDirection.NW: return new HexCoordinates(Q,     R + 1);
+        case HexDirection.NE: return isEven ? new HexCoordinates(Q + 1, R) : new HexCoordinates(Q + 1, R + 1);
+        case HexDirection.E:  return new HexCoordinates(Q + 1, R);
+        case HexDirection.SE: return isEven ? new HexCoordinates(Q + 1, R - 1) : new HexCoordinates(Q + 1, R);
+        case HexDirection.SW: return isEven ? new HexCoordinates(Q - 1, R - 1) : new HexCoordinates(Q - 1, R);
+        case HexDirection.W:  return new HexCoordinates(Q - 1, R);
+        case HexDirection.NW: return isEven ? new HexCoordinates(Q - 1, R) : new HexCoordinates(Q - 1, R + 1);
         default: return this;
     }
 }
