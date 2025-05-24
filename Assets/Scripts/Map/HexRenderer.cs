@@ -175,12 +175,13 @@ public class HexRenderer : MonoBehaviour
     
    void OnDrawGizmos()
     {
-        if (!HexBorderVisualizer.ShowBorders) return;
+        if (!HexBorderManager.IsVisible) return;
 
-        Gizmos.color = HexBorderVisualizer.BorderColor;
+
+        Gizmos.color = HexBorderManager.BorderColor;
 
         float outerRadius = HexRenderer.SharedOuterRadius;
-        float yOffset = HexBorderVisualizer.HeightOffset;
+        float yOffset = HexBorderManager.HeightOffset;
         Vector3 center = transform.position + Vector3.up * yOffset;
 
         for (int i = 0; i < 6; i++)

@@ -92,5 +92,19 @@ public static void SnapToHexCenterXYZ(Transform objectTransform, HexRenderer hex
     Debug.Log($"📍 {objectTransform.name} colocado en ({newPos.x:F2}, {newPos.y:F2}, {newPos.z:F2}) sobre {hexRenderer.name}.");
 }
 
+/// <summary>
+/// Devuelve la altura visual superior del hexágono, considerando su escala y altura base.
+/// </summary>
+public static float GetHexVisualTopY(HexRenderer hexRenderer, float verticalOffset = 0f)
+{
+    if (hexRenderer == null)
+    {
+        Debug.LogWarning("⚠️ HexRenderer es null en GetHexVisualTopY.");
+        return 0f;
+    }
+
+    return hexRenderer.transform.position.y + hexRenderer.columnHeight * hexRenderer.heightScale + verticalOffset;
+}
+
 
 }
