@@ -576,19 +576,28 @@ public class HexBehavior : MonoBehaviour
 
     public void EvaluateInfluence()
     {
-        WorldMapManager.Instance.AssignNeighborReferences(WorldMapManager.Instance.GetOrGenerateHex(coordinates));
-        influenceMap.Clear();
+       var hexData = WorldMapManager.Instance.GetOrGenerateHex(coordinates);
+        WorldMapManager.Instance.AssignNeighborReferences(hexData);
+        neighbors.Clear();
+        foreach (var neighborData in hexData.neighborRefs)
+        {
+            if (neighborData != null && neighborData.hexBehavior != null)
+                neighbors.Add(neighborData.hexBehavior);
+        }
+
 
         foreach (var neighbor in neighbors)
-        {
-            if (neighbor.crystalType != null && neighbor.state == HexState.Full)
-            {
-                var type = neighbor.crystalType.Value;
-                if (!influenceMap.ContainsKey(type))
-                    influenceMap[type] = 0;
-                influenceMap[type]++;
-            }
-        }
+{
+    if (neighbor == null) continue; // Evitar errores
+    if (neighbor.crystalType != null && neighbor.state == HexState.Full)
+    {
+        var type = neighbor.crystalType.Value;
+        if (!influenceMap.ContainsKey(type))
+            influenceMap[type] = 0;
+        influenceMap[type]++;
+    }
+}
+
 
         if (influenceMap.Count == 0)
         {

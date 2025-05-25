@@ -39,4 +39,8 @@ public class HexData
 
     // En runtime, puede poblarse dinámicamente con referencias (si es necesario)
     public List<HexData> neighborRefs = new();
+
+       public float waterAmount = 0f;
+    public bool isRiver = false;
+    public bool isLake = false;
 }

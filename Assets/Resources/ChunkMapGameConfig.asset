@@ -24,11 +24,11 @@ MonoBehaviour:
   - terrainType: 3
     material: {fileID: 2100000, guid: 7bf9f12443d9c42a2a76183558b3f40a, type: 2}
   - terrainType: 4
-    material: {fileID: 2100000, guid: df113fe527fc94802b83992ac02eef3f, type: 2}
+    material: {fileID: 2100000, guid: d2bd5c6671fe4417aba4438a2f7fc7b0, type: 2}
   - terrainType: 5
     material: {fileID: 2100000, guid: 91e8eb71bdd6e4b649e40f55a9abd784, type: 2}
   - terrainType: 6
-    material: {fileID: 2100000, guid: df113fe527fc94802b83992ac02eef3f, type: 2}
+    material: {fileID: 2100000, guid: d2bd5c6671fe4417aba4438a2f7fc7b0, type: 2}
   - terrainType: 7
     material: {fileID: 2100000, guid: e14bf7e929b824357a1bb55657b87799, type: 2}
   - terrainType: 8
