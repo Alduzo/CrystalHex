@@ -94,7 +94,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 0}
-  m_LightingSettings: {fileID: 0}
+  m_LightingSettings: {fileID: 4890085278179872738, guid: 54dc784e42e2dba4f85faf7dc0a49e81, type: 2}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -648,7 +648,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hexPrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
-  chunkSize: 9
+  chunkSize: 6
   loadRadius: 2
   unloadRadius: 1
 --- !u!4 &350062403
@@ -989,7 +989,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   WorldTickSystem: []
-  speed: 2
+  speed: 0
 --- !u!4 &519350576
 Transform:
   m_ObjectHideFlags: 0
@@ -1860,6 +1860,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   perlinSettings: {fileID: 11400000, guid: 719fb08448d754798a73394f11fb25b5, type: 2}
+  oceanThreshold: -50
+  coastalWaterThreshold: -5
+  sandyBeachMinElevation: -5
+  sandyBeachMaxElevation: 1
+  sandyBeachMinSlope: 0
+  sandyBeachMaxSlope: 0.05
+  rockyBeachMinElevation: -5
+  rockyBeachMaxElevation: 1
+  rockyBeachMinSlope: 0.05
+  rockyBeachMaxSlope: 1
+  plainsMinElevation: 1
+  plainsMaxElevation: 15
+  plainsMinSlope: 0
+  plainsMaxSlope: 0.1
+  hillsMinElevation: 15
+  hillsMaxElevation: 80
+  hillsMinSlope: 0.1
+  hillsMaxSlope: 0.4
+  plateauMinElevation: 80
+  plateauMaxElevation: 120
+  plateauMinSlope: 0
+  plateauMaxSlope: 0.1
+  mountainMinElevation: 120
+  mountainMaxElevation: 200
+  mountainMinSlope: 0.3
+  mountainMaxSlope: 1
+  valleyMinElevation: -10
+  valleyMaxElevation: 20
+  valleyMinSlope: 0.05
+  valleyMaxSlope: 0.4
+  mapWidth: 1000
+  mapHeight: 1000
 --- !u!4 &893854631
 Transform:
   m_ObjectHideFlags: 0
@@ -2340,7 +2372,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
-  elevationScale: 20.4
+  elevationScale: 6.1
 --- !u!4 &1198349187
 Transform:
   m_ObjectHideFlags: 0
@@ -3191,7 +3223,7 @@ MonoBehaviour:
   swivelMaxZoom: 75
   moveSpeedMinZoom: 5
   moveSpeedMaxZoom: 20
-  rotationSpeed: 0
+  rotationSpeed: 20
   yZoomSpeed: 10
   yMinHeight: 3
   yMaxHeight: 50

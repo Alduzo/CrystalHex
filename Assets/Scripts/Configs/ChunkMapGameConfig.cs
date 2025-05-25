@@ -12,6 +12,7 @@ public class ChunkMapGameConfig : ScriptableObject
     }
 
     public TerrainMaterialPair[] terrainMaterials;
+
     public float elevationScale = 1f;
 
     private Dictionary<TerrainType, Material> _materialMap;

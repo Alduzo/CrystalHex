@@ -1,6 +1,6 @@
 # HexMap – Código fuente consolidado
 
-_Generado el Thu May 22 15:38:29 EST 2025_\n
+_Generado el Sat May 24 15:37:50 EST 2025_\n
 
 ---
 
@@ -93,12 +93,18 @@ public class CoroutineDispatcher : MonoBehaviour
     public static CoroutineDispatcher Instance;
 
     void Awake()
+{
+    if (Instance == null)
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        Instance = this;
+        DontDestroyOnLoad(gameObject); // ← ¡Aquí!
     }
+    else
+    {
+        Destroy(gameObject);
+    }
+}
+
 
     public void RunCoroutine(IEnumerator coroutine)
     {
@@ -245,6 +251,12 @@ public class ColliderDebugTool : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, sphereRadius);
     }
 
+    void OnDrawGizmosSelected()
+{
+    Gizmos.color = Color.red;
+    Gizmos.DrawWireSphere(transform.position, 5.0f);
+}
+
     void Update()
     {
         if (Time.time - lastCheckTime > refreshRate)
@@ -264,6 +276,74 @@ public class ColliderDebugTool : MonoBehaviour
         Debug.Log($"Total HexRenderers in scene: {hexRenderers.Length}");
     }
 }```
+
+---
+
+## 📁 Debug/HexTileValidator.cs
+```csharp
+using UnityEngine;
+using UnityEditor;
+
+public class HexTileValidator : MonoBehaviour
+{
+    [MenuItem("Tools/Validate HexTiles In Scene")]
+    public static void ValidateHexTiles()
+    {
+        var tiles = FindObjectsOfType<HexRenderer>();
+        Debug.Log($"🔍 Validando {tiles.Length} HexTiles...");
+
+        foreach (var tile in tiles)
+        {
+            var go = tile.gameObject;
+            string name = go.name;
+
+            if (go.layer != LayerMask.NameToLayer("Terrain"))
+                Debug.LogWarning($"⚠️ {name} NO está en la capa Terrain (está en {LayerMask.LayerToName(go.layer)})");
+
+            var mf = go.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null)
+                Debug.LogWarning($"❌ {name} no tiene MeshFilter válido");
+
+            var mc = go.GetComponent<MeshCollider>();
+            if (mc == null || mc.sharedMesh == null)
+                Debug.LogWarning($"❌ {name} no tiene MeshCollider válido");
+
+            if (mf != null && mf.sharedMesh != null && mc != null && mc.sharedMesh != null)
+                Debug.Log($"✅ {name} tiene collider y mesh correctamente configurados.");
+        }
+    }
+}
+```
+
+---
+
+## 📁 Debug/PlacementDebug.cs
+```csharp
+using UnityEngine;
+
+public class PlacementDebug : MonoBehaviour
+{
+    void Start()
+    {
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 5.0f, LayerMask.GetMask("Terrain"));
+        Debug.Log($"🧪 [{name}] ve {colliders.Length} colisionadores de terreno.");
+        foreach (var col in colliders)
+        {
+            Debug.Log($" - Hex: {col.name}, MeshCollider: {col.GetComponent<MeshCollider>() != null}");
+        }
+
+        var rend = GetComponentInChildren<Renderer>();
+        if (rend == null)
+        {
+            Debug.LogWarning($"❌ {name} no tiene Renderer hijo visible.");
+        }
+        else
+        {
+            Debug.Log($"✅ {name} tiene Renderer hijo activo: {rend.gameObject.name}");
+        }
+    }
+}
+```
 
 ---
 
@@ -745,8 +825,8 @@ public class HexMapCamera : MonoBehaviour
 
         // --- VERTICAL ZOOM (Y-level) (E/R Keys) ---
         float yMoveDelta = 0f;
-        if (Input.GetKey(KeyCode.E)) yMoveDelta = -1f; // E to zoom in (move camera down)
-        if (Input.GetKey(KeyCode.R)) yMoveDelta = 1f;  // R to zoom out (move camera up)
+        if (Input.GetKey(KeyCode.O)) yMoveDelta = -1f; // E to zoom in (move camera down)
+        if (Input.GetKey(KeyCode.L)) yMoveDelta = 1f;  // R to zoom out (move camera up)
 
         if (yMoveDelta != 0f)
         {
@@ -899,6 +979,9 @@ public class ChunkGenerator
 
                 hex.layer = LayerMask.NameToLayer("Terrain");
 
+                SetLayerRecursively(hex, LayerMask.NameToLayer("Terrain"));
+
+
                 // Diagnóstico detallado
                 Debug.Log($"🧪 Instanciado {hex.name} con componentes:");
                 Debug.Log($"↳ HexBehavior: {hex.GetComponent<HexBehavior>() != null}");
@@ -973,7 +1056,7 @@ public class ChunkGenerator
                     {
                         Debug.LogWarning("⚠️ No se encontró el prefab en Resources/TerrainObjects/Leaf_Oak");
                     }
-                    else if ((globalQ + globalR) % 5 == 0)
+                    else if (Random.value < 0.05f)
                     {
                         CoroutineDispatcher.Instance?.RunCoroutine(DelayedPlaceFeature(behavior, testPrefab));
                     }
@@ -1052,16 +1135,33 @@ public class ChunkGenerator
         }
     }
 
-private static IEnumerator DelayedPlaceFeature(HexBehavior hex, GameObject prefab)
-{
-    yield return new WaitForSeconds(0.1f); // Puedes ajustar el tiempo si sigue fallando
-
-    if (hex != null && prefab != null)
+    private static IEnumerator DelayedPlaceFeature(HexBehavior hex, GameObject prefab)
     {
-        HexObjectPlacer.PlaceOnHex(hex, prefab);
+        yield return new WaitForSeconds(0.1f); // Puedes ajustar el tiempo si sigue fallando
+
+        if (hex != null && prefab != null)
+        {
+            HexObjectPlacer.PlaceOnHex(hex, prefab);
+        }
+        
+    
+}
+    private static void SetLayerRecursively(GameObject obj, int layer)
+{
+    obj.layer = layer;
+    foreach (Transform child in obj.transform)
+    {
+        SetLayerRecursively(child.gameObject, layer);
     }
 }
 
+public static GameObject PlaceOnHex(HexBehavior hex, GameObject prefab)
+{
+    GameObject obj = Object.Instantiate(prefab);
+    obj.name = $"Feature_{hex.coordinates.Q}_{hex.coordinates.R}";
+
+    return obj;
+}
 
 
 }
@@ -1155,15 +1255,36 @@ public class ChunkManager : MonoBehaviour
                     anyNewChunks = true;
                 }
             }
+            
         }
 
         if (anyNewChunks)
         {
             ReassignAllChunkBehaviorNeighbors();
+            List<HexRenderer> newHexes = new List<HexRenderer>();
+
+            foreach (var coord in chunksToKeep)
+            {
+                if (loadedChunks.TryGetValue(coord, out var chunk))
+                {
+                    HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
+                    if (hexes.Length > 0)
+                    {
+                        Debug.Log($"🔍 Chunk en {coord} tiene {hexes.Length} hexes.");
+                        newHexes.AddRange(hexes);
+                    }
+                }
+            }
+
+            Debug.Log($"🔍 Se encontraron {newHexes.Count} nuevos HexRenderer.");
+            HexBorderManager.Instance?.AddBordersForChunk(newHexes);
+
         }
+
 
         if (unloadRadius > 0)
         {
+            
             foreach (var coord in loadedChunks.Keys)
             {
                 int dist = Mathf.Max(
@@ -1182,6 +1303,10 @@ public class ChunkManager : MonoBehaviour
         {
             if (loadedChunks.TryGetValue(coord, out var chunk))
             {
+                HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
+                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
+                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
+
                 Destroy(chunk);
                 loadedChunks.Remove(coord);
             }
@@ -1397,6 +1522,135 @@ public class CrystalMesh : MonoBehaviour
 
 ---
 
+## 📁 Map/HexBorderManager.cs
+```csharp
+using UnityEngine;
+using System.Collections.Generic;
+
+public class HexBorderManager : MonoBehaviour
+{
+    public static HexBorderManager Instance;
+
+    [Header("Border Settings")]
+    [SerializeField] private bool bordersVisible = true;
+    [SerializeField] private float heightOffset = 0.1f;
+    [SerializeField] private Color borderColor = Color.white;
+    [SerializeField] private float lineWidth = 0.05f;
+    [SerializeField] private float outerRadius = 1f;
+
+    private Dictionary<HexRenderer, LineRenderer> borderLines = new();
+
+    public static bool IsVisible => Instance != null && Instance.bordersVisible;
+    public static float HeightOffset => Instance != null ? Instance.heightOffset : 0.1f;
+    public static Color BorderColor => Instance != null ? Instance.borderColor : Color.white;
+    public static float LineWidth => Instance != null ? Instance.lineWidth : 0.05f;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+        }
+        else
+        {
+            Instance = this;
+            Debug.Log("✅ HexBorderManager iniciado correctamente.");
+        }
+    }
+
+    public void AddBordersForChunk(IEnumerable<HexRenderer> hexes)
+    {
+        int count = 0;
+        foreach (var hex in hexes)
+        {
+            if (borderLines.ContainsKey(hex)) continue;
+
+            GameObject lineObj = new GameObject($"HexBorder_{hex.name}");
+            lineObj.transform.SetParent(this.transform);
+
+            LineRenderer lr = lineObj.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.loop = true;
+            lr.positionCount = 7;
+            lr.material = new Material(Shader.Find("Unlit/Color"));
+            lr.widthMultiplier = lineWidth;
+            lr.material.color = borderColor;
+            lr.startColor = borderColor;
+            lr.endColor = borderColor;
+
+            Vector3 center = new Vector3(hex.transform.position.x,
+                hex.transform.position.y + hex.columnHeight * hex.heightScale + heightOffset,
+                hex.transform.position.z);
+
+            Vector3[] corners = new Vector3[7];
+            for (int i = 0; i < 7; i++)
+            {
+                float angle = Mathf.Deg2Rad * (60f * i);
+                corners[i] = new Vector3(
+                    center.x + outerRadius * Mathf.Cos(angle),
+                    center.y,
+                    center.z + outerRadius * Mathf.Sin(angle)
+                );
+            }
+
+            lr.SetPositions(corners);
+            lr.enabled = bordersVisible;
+
+            borderLines.Add(hex, lr);
+            count++;
+        }
+        Debug.Log($"🟢 Agregados {count} bordes para el chunk.");
+    }
+
+    public void RemoveBordersForChunk(IEnumerable<HexRenderer> hexes)
+    {
+        int count = 0;
+        foreach (var hex in hexes)
+        {
+            if (borderLines.TryGetValue(hex, out var lr))
+            {
+                Destroy(lr.gameObject);
+                borderLines.Remove(hex);
+                count++;
+            }
+        }
+        Debug.Log($"🔴 Eliminados {count} bordes del chunk.");
+    }
+
+    public void ToggleBorders()
+    {
+        bordersVisible = !bordersVisible;
+        foreach (var lr in borderLines.Values)
+        {
+            lr.enabled = bordersVisible;
+        }
+        Debug.Log($"🔲 Bordes {(bordersVisible ? "ACTIVADOS" : "DESACTIVADOS")}");
+    }
+
+    public void SetBordersVisibility(bool visible)
+    {
+        bordersVisible = visible;
+        foreach (var lr in borderLines.Values)
+        {
+            lr.enabled = visible;
+        }
+    }
+
+    public void RefreshBorders()
+    {
+        foreach (var lr in borderLines.Values)
+        {
+            lr.widthMultiplier = lineWidth;
+            lr.material.color = borderColor;
+            lr.startColor = borderColor;
+            lr.endColor = borderColor;
+        }
+    }
+}
+```
+
+---
+
 ## 📁 Map/HexCoordinates.cs
 ```csharp
 using System.Collections.Generic;
@@ -1504,14 +1758,16 @@ public struct HexCoordinates
 
     public HexCoordinates GetNeighbor(HexDirection direction)
 {
+    bool isEven = Q % 2 == 0;
+
     switch (direction)
     {
-        case HexDirection.NE: return new HexCoordinates(Q + 1, R);
-        case HexDirection.E:  return new HexCoordinates(Q + 1, R - 1);
-        case HexDirection.SE: return new HexCoordinates(Q,     R - 1);
-        case HexDirection.SW: return new HexCoordinates(Q - 1, R);
-        case HexDirection.W:  return new HexCoordinates(Q - 1, R + 1);
-        case HexDirection.NW: return new HexCoordinates(Q,     R + 1);
+        case HexDirection.NE: return isEven ? new HexCoordinates(Q + 1, R) : new HexCoordinates(Q + 1, R + 1);
+        case HexDirection.E:  return new HexCoordinates(Q + 1, R);
+        case HexDirection.SE: return isEven ? new HexCoordinates(Q + 1, R - 1) : new HexCoordinates(Q + 1, R);
+        case HexDirection.SW: return isEven ? new HexCoordinates(Q - 1, R - 1) : new HexCoordinates(Q - 1, R);
+        case HexDirection.W:  return new HexCoordinates(Q - 1, R);
+        case HexDirection.NW: return isEven ? new HexCoordinates(Q - 1, R) : new HexCoordinates(Q - 1, R + 1);
         default: return this;
     }
 }
@@ -1568,7 +1824,7 @@ public class HexData
 
 ## 📁 Map/HexRenderer.cs
 ```csharp
-// 📁 HexRenderer.cs
+// 📁 HexRenderer.cs (Updated)
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -1587,32 +1843,51 @@ public class HexRenderer : MonoBehaviour
     public Color sideColor = Color.black;
 
     [Header("Scale Settings")]
-    [Range(0.01f, 1f)] public float heightScale = 0.25f;
+    [Range(0.01f, 5f)] public float heightScale = 20f;
 
     Mesh _mesh;
     MeshFilter _mf;
     MeshCollider _mc;
     MeshRenderer _mr;
 
+    void Start()
+    {
+        if (Application.isPlaying)
+        {
+            BuildMesh();
+        }
+    }
+
     void Awake()
     {
         InitializeComponents();
-        BuildMesh();
+        // Always build mesh in Play Mode
+        if (Application.isPlaying)
+        {
+            BuildMesh();
+        }
     }
 
     void OnEnable()
     {
         InitializeComponents();
-        BuildMesh();
+        // Always build mesh in Play Mode
+        if (Application.isPlaying)
+        {
+            BuildMesh();
+        }
     }
 
 #if UNITY_EDITOR
     void OnValidate()
     {
-        if (!Application.isPlaying)
+        // Only execute when the game is not playing AND in a valid scene state
+        if (!Application.isPlaying && _mf != null && _mc != null && _mr != null)
         {
-            InitializeComponents();
-            BuildMesh();
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (this != null) BuildMesh();
+            };
         }
     }
 #endif
@@ -1622,9 +1897,9 @@ public class HexRenderer : MonoBehaviour
         if (_mf == null) _mf = GetComponent<MeshFilter>();
         if (_mc == null) _mc = GetComponent<MeshCollider>();
         if (_mr == null) _mr = GetComponent<MeshRenderer>();
+        // Ensure mesh is initialized. If it was cleared or destroyed in editor, create a new one.
         if (_mesh == null) _mesh = new Mesh { name = "HexSimple" };
     }
-
 
     public void SetHeight(float elevationHeight)
     {
@@ -1640,28 +1915,32 @@ public class HexRenderer : MonoBehaviour
 
     void BuildMesh()
     {
-        if (_mf == null || _mc == null || _mr == null || _mesh == null)
-        {
-             InitializeComponents();
-        }
+        if (_mf != null) _mf.sharedMesh = null;
+        if (_mc != null) _mc.sharedMesh = null;
+        InitializeComponents();
 
-        _mesh.Clear();
+        if (_mesh != null) _mesh.Clear();
+        else _mesh = new Mesh { name = "HexSimple" };
 
         List<Vector3> v = new();
         List<int> t = new();
         List<Color> c = new();
 
-        float yTop = columnHeight * heightScale;
-        float yBottom = 0f;
-
         // TOP
+        float yTop = columnHeight * heightScale;
+        float yBottom = 0f; // For the base of the column
+
+        // Center vertex
+        v.Add(new Vector3(0, yTop, 0)); c.Add(topColor);
+        // Vertices for the top surface (outer ring)
         for (int i = 0; i < 6; i++)
         {
-            v.Add(Vector3.zero + Vector3.up * yTop); // Center
-            v.Add(GetFlatPoint(i, yTop));
-            v.Add(GetFlatPoint((i + 1) % 6, yTop));
-            t.Add(v.Count - 3); t.Add(v.Count - 2); t.Add(v.Count - 1);
-            c.Add(topColor); c.Add(topColor); c.Add(topColor);
+            v.Add(GetFlatPoint(i, yTop)); c.Add(topColor);
+        }
+        // Triangles for the top surface
+        for (int i = 0; i < 6; i++)
+        {
+            t.AddRange(new[] { 0, i + 1, (i + 1) % 6 + 1 });
         }
 
         // SIDES
@@ -1688,26 +1967,41 @@ public class HexRenderer : MonoBehaviour
         _mesh.SetTriangles(t, 0);
         _mesh.RecalculateNormals();
 
-        _mf.sharedMesh = _mesh;
-        // Only set the MeshCollider's sharedMesh if it's different or needs updating
-        if (_mc.sharedMesh != _mesh)
+        if (_mf != null && Application.isPlaying)
         {
-            _mc.sharedMesh = _mesh;
+            _mf.sharedMesh = _mesh;
         }
 
-        _mc.convex = false;
+        if (_mc != null && Application.isPlaying)
+        {
+            _mc.sharedMesh = _mesh;
+            _mc.convex = false;
+        }
 
-        if (_mr.sharedMaterial == null && material != null)
+        if (_mr != null && _mr.sharedMaterial == null && material != null)
+        {
             _mr.sharedMaterial = material;
+        }
+      //  Debug.Log($"{name} – Mesh vertices: {_mesh.vertexCount}, assigned to MeshCollider: {_mc.sharedMesh != null}");
+
     }
 
     Vector3 GetFlatPoint(int index, float y)
     {
         float angle = 60f * index * Mathf.Deg2Rad;
-        return new Vector3(Mathf.Cos(angle) * SharedOuterRadius, y, Mathf.Sin(angle) * SharedOuterRadius);
+        return new Vector3(SharedOuterRadius * Mathf.Cos(angle), y, SharedOuterRadius * Mathf.Sin(angle));
     }
 
-    public float VisualTopY => transform.position.y + columnHeight * heightScale;
+    public float VisualTopY
+    {
+        get { return transform.position.y + columnHeight * heightScale; }
+
+
+    }
+    
+
+
+    
 }```
 
 ---
@@ -1716,24 +2010,25 @@ public class HexRenderer : MonoBehaviour
 ```csharp
 using UnityEngine;
 
+// Configuración de parámetros centralizados como asset.
+
 [CreateAssetMenu(menuName = "World/PerlinSettings")]
 public class PerlinSettings : ScriptableObject
 {
     public float elevationFreq = 0.02f;
-    public int elevationSeedOffset = 1000;
+    public float moistureFreq = 0.03f;
+    public float tempFreq = 0.015f;
+    public int seed = 1000;
 
-[Header("Anomaly Settings")]
+    [Header("Perlin Fractal Settings")]
+    public int octaves = 6;
+    public float lacunarity = 2.5f;
+    public float persistence = 0.4f;
+
+    [Header("Anomaly Settings")]
     [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
     [Range(0f, 1f)] public float anomalyStrength = 0.25f;
     public float anomalyFrequency = 0.1f;
-    public int anomalySeedOffset = 5000;
-    public float moistureFreq = 0.03f;
-    public int moistureSeedOffset = 2000;
-
-    public float tempFreq = 0.015f;
-    public int tempSeedOffset = 3000;
-
-
 }
 ```
 
@@ -1743,17 +2038,27 @@ public class PerlinSettings : ScriptableObject
 ```csharp
 using UnityEngine;
 
+// Control visual para editar PerlinSettings desde el inspector.
 public class PerlinSettingsController : MonoBehaviour
 {
-    public PerlinSettings perlinSettings;
+    [Header("Perlin Settings Asset")]
+    public PerlinSettings perlinSettings; // Asigna aquí el asset en el inspector
 
+    [Header("Editable Settings")]
     [Range(0.001f, 15f)] public float elevationFreq = 0.02f;
     [Range(0.001f, 1f)] public float moistureFreq = 0.03f;
     [Range(0.001f, 1f)] public float tempFreq = 0.015f;
+    public int seed = 1000;
 
-    public int elevationSeedOffset = 1000;
-    public int moistureSeedOffset = 2000;
-    public int tempSeedOffset = 3000;
+    [Header("Perlin Fractal Settings")]
+    [Range(1, 10)] public int octaves = 6;
+    [Range(1f, 4f)] public float lacunarity = 2.5f;
+    [Range(0.1f, 1f)] public float persistence = 0.4f;
+
+    [Header("Anomaly Settings")]
+    [Range(0f, 1f)] public float anomalyStrength = 0.25f;
+    [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
+    public float anomalyFrequency = 0.1f;
 
     void OnValidate()
     {
@@ -1762,37 +2067,22 @@ public class PerlinSettingsController : MonoBehaviour
             perlinSettings.elevationFreq = elevationFreq;
             perlinSettings.moistureFreq = moistureFreq;
             perlinSettings.tempFreq = tempFreq;
+            perlinSettings.seed = seed;
 
-            perlinSettings.elevationSeedOffset = elevationSeedOffset;
-            perlinSettings.moistureSeedOffset = moistureSeedOffset;
-            perlinSettings.tempSeedOffset = tempSeedOffset;
+            // Aplicar parámetros avanzados de Perlin
+            perlinSettings.octaves = octaves;
+            perlinSettings.lacunarity = lacunarity;
+            perlinSettings.persistence = persistence;
+
+            perlinSettings.anomalyStrength = anomalyStrength;
+            perlinSettings.anomalyThreshold = anomalyThreshold;
+            perlinSettings.anomalyFrequency = anomalyFrequency;
+
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(perlinSettings);
+#endif
         }
     }
-
-    void Start()
-    {
-        if (perlinSettings != null)
-        {
-            elevationFreq = perlinSettings.elevationFreq;
-            moistureFreq = perlinSettings.moistureFreq;
-            tempFreq = perlinSettings.tempFreq;
-
-            elevationSeedOffset = perlinSettings.elevationSeedOffset;
-            moistureSeedOffset = perlinSettings.moistureSeedOffset;
-            tempSeedOffset = perlinSettings.tempSeedOffset;
-        }
-    }
-
-    [Header("Anomaly Settings")]
-    [Range(0f, 1f)]
-    public float anomalyStrength = 0.25f;
-
-    [Range(0f, 1f)]
-    public float anomalyThreshold = 0.15f;
-
-    public float anomalyFrequency = 0.1f;
-    public int anomalySeedOffset = 5000;
-
 }
 ```
 
@@ -1802,6 +2092,7 @@ public class PerlinSettingsController : MonoBehaviour
 ```csharp
 using UnityEngine;
 
+// contiene Lógica matemática pura (Perlin, FractalPerlin, RidgePerlin).
 
 public static class PerlinUtility
 {
@@ -1833,28 +2124,35 @@ public static class PerlinUtility
         return total / maxValue;
     }
 
-   public static float ApplyElevationAnomaly(
-    HexCoordinates coord,
-    float baseElevation,
-    float anomalyFreq,
-    float anomalyThreshold,
-    float anomalyStrength,
-    int seedOffset)
-{
-    float noise = Mathf.PerlinNoise(
-        (coord.Q + seedOffset) * anomalyFreq,
-        (coord.R + seedOffset) * anomalyFreq
-    );
+    public static float ApplyElevationAnomaly(
+     HexCoordinates coord,
+     float baseElevation,
+     float anomalyFreq,
+     float anomalyThreshold,
+     float anomalyStrength,
+     int seedOffset)
+    {
+        float noise = Mathf.PerlinNoise(
+            (coord.Q + seedOffset) * anomalyFreq,
+            (coord.R + seedOffset) * anomalyFreq
+        );
 
-    if (noise > 1f - anomalyThreshold)
-        return baseElevation + anomalyStrength;
+        if (noise > 1f - anomalyThreshold)
+            return baseElevation + anomalyStrength;
 
-    if (noise < anomalyThreshold)
-        return baseElevation - anomalyStrength;
+        if (noise < anomalyThreshold)
+            return baseElevation - anomalyStrength;
 
-    return baseElevation;
-}
+        return baseElevation;
+    }
 
+    public static float RidgePerlin(HexCoordinates coord, float frequency, int seedOffset)
+    {
+        float nx = (coord.Q + seedOffset) * frequency;
+        float ny = (coord.R + seedOffset) * frequency;
+        float p = Mathf.PerlinNoise(nx, ny);
+        return Mathf.Pow(1f - Mathf.Abs(2f * p - 1f), 2f); // O cualquier lógica que elijas
+    }
 
 }
 ```
@@ -1978,34 +2276,12 @@ public class TerrainPlacementHelper : MonoBehaviour
 using System.Collections.Generic;
 using UnityEngine;
 
+// Lógica del terreno (mapa, biomas, generación procedural).
 public class WorldMapManager : MonoBehaviour
 {
-    // Asigna referencias activas a vecinos existentes
-    public void AssignNeighborReferences(HexData hex)
-    {
-        hex.neighborRefs.Clear();
-        foreach (var coord in hex.neighborCoords)
-        {
-            if (worldMap.TryGetValue(coord, out var neighbor))
-            {
-                hex.neighborRefs.Add(neighbor);
-            }
-        }
-    }
-
-    // Asigna referencias para todos los HexData de un chunk (opcional)
-    public void AssignNeighborsForChunk(List<HexData> chunkHexes)
-    {
-        foreach (var hex in chunkHexes)
-        {
-            AssignNeighborReferences(hex);
-        }
-    }
-
     public static WorldMapManager Instance;
 
     [Header("World Settings")]
-    public int seed = 42;
     public PerlinSettings perlinSettings;
 
     private Dictionary<HexCoordinates, HexData> worldMap = new();
@@ -2023,33 +2299,34 @@ public class WorldMapManager : MonoBehaviour
         HexData hex = new HexData();
         hex.coordinates = coord;
 
-        // Capas Perlin
-        float baseElevation = PerlinUtility.FractalPerlin(
-    coord,
-    perlinSettings.elevationFreq,
-    4,           // octaves
-    2f,          // lacunarity
-    0.5f,        // persistence
-    perlinSettings.elevationSeedOffset + seed
-);
+        // Capas Perlin usando solo perlinSettings.seed
+        float baseElevation = (PerlinUtility.FractalPerlin(
+            coord,
+            perlinSettings.elevationFreq,
+            4,
+            1.5f,
+            0.4f,
+            perlinSettings.seed
+        ) * 1.2f) + (PerlinUtility.RidgePerlin(
+            coord,
+            perlinSettings.elevationFreq,
+            perlinSettings.seed
+        ) * 1.0f);
 
-float finalElevation = PerlinUtility.ApplyElevationAnomaly(
-    coord,
-    baseElevation,
-    perlinSettings.anomalyFrequency,
-    perlinSettings.anomalyThreshold,
-    perlinSettings.anomalyStrength,
-    perlinSettings.anomalySeedOffset + seed
-);
+        float finalElevation = PerlinUtility.ApplyElevationAnomaly(
+            coord,
+            baseElevation,
+            perlinSettings.anomalyFrequency,
+            perlinSettings.anomalyThreshold,
+            perlinSettings.anomalyStrength,
+            perlinSettings.seed
+        );
 
-hex.elevation = finalElevation;
+        hex.elevation = finalElevation;
+        hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.seed);
+        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.seed);
 
-
-
-        hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.moistureSeedOffset + seed);
-        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.tempSeedOffset + seed);
-
-        // Bioma inicial provisional
+        // Asignación de bioma
         if (hex.elevation < 0.08f)
             hex.terrainType = TerrainType.OceanDeep;
         else if (hex.elevation < 0.16f)
@@ -2062,14 +2339,12 @@ hex.elevation = finalElevation;
             hex.terrainType = TerrainType.Valley;
         else if (hex.elevation < 0.68f)
             hex.terrainType = TerrainType.Forest;
-        else if (hex.elevation < 0.82f)
+        else if (hex.elevation < 0.92f)
             hex.terrainType = TerrainType.Hills;
         else
             hex.terrainType = TerrainType.Mountains;
 
-
-
-        // Asignación lógica de vecinos (coordenadas)
+        // Asignar coordenadas de vecinos
         foreach (HexCoordinates neighbor in coord.GetAllNeighbors())
         {
             hex.neighborCoords.Add(neighbor);
@@ -2106,6 +2381,27 @@ hex.elevation = finalElevation;
         return worldMap.Values;
     }
 
+    // Mantener asignación de vecinos para ChunkGenerator
+    public void AssignNeighborReferences(HexData hex)
+    {
+        hex.neighborRefs.Clear();
+        foreach (var coord in hex.neighborCoords)
+        {
+            if (worldMap.TryGetValue(coord, out var neighbor))
+            {
+                hex.neighborRefs.Add(neighbor);
+            }
+        }
+    }
+
+    public void AssignNeighborsForChunk(List<HexData> chunkHexes)
+    {
+        foreach (var hex in chunkHexes)
+        {
+            AssignNeighborReferences(hex);
+        }
+    }
+
     private TerrainType DetermineTerrainType(HexData hex)
     {
         float elevation = hex.elevation;
@@ -2113,10 +2409,8 @@ hex.elevation = finalElevation;
         if (elevation < 0.1f) return TerrainType.OceanDeep;
         if (elevation < 0.25f) return TerrainType.OceanShallow;
 
-        // Cálculo de pendiente
         float slopeSum = 0f;
         int count = 0;
-
         foreach (var neighborCoord in hex.neighborCoords)
         {
             if (worldMap.TryGetValue(neighborCoord, out var neighbor))
@@ -2125,7 +2419,6 @@ hex.elevation = finalElevation;
                 count++;
             }
         }
-
         float avgSlope = (count > 0) ? slopeSum / count : 0f;
 
         if (avgSlope < 0.02f) return TerrainType.Plains;
@@ -2133,7 +2426,7 @@ hex.elevation = finalElevation;
         if (elevation > 0.8f) return TerrainType.Mountains;
         if (avgSlope >= 0.06f && elevation < 0.5f) return TerrainType.Valley;
 
-        return TerrainType.Plains; // Fallback
+        return TerrainType.Plains;
     }
 
     public static bool IsWater(TerrainType type)
@@ -2141,62 +2434,59 @@ hex.elevation = finalElevation;
         return type == TerrainType.OceanDeep || type == TerrainType.OceanShallow;
     }
 
-
-
-}```
+    public static float RidgePerlin(HexCoordinates coord, float frequency, int seedOffset)
+    {
+        float nx = (coord.Q + seedOffset) * frequency;
+        float ny = (coord.R + seedOffset) * frequency;
+        float p = Mathf.PerlinNoise(nx, ny);
+        return Mathf.Pow(1f - Mathf.Abs(2f * p - 1f), 2f);
+    }
+}
+```
 
 ---
 
 ## 📁 ObjectPlacement/AutoPlaceOnTerrain.cs
 ```csharp
-// 📁 AutoPlaceOnTerrain.cs
 using UnityEngine;
-using System.Collections;
 
 [DisallowMultipleComponent]
 public class AutoPlaceOnTerrain : MonoBehaviour
 {
     [SerializeField] private string terrainLayerName = "Terrain";
     [SerializeField] private float heightOffset = 0.25f;
-    [SerializeField] private int maxAttempts = 30;
-    [SerializeField] private float retryDelay = 0.1f;
+    [SerializeField] private float placementDetectionRadius = 5.0f;
     [SerializeField] private bool debug = false;
 
-    private IEnumerator Start()
+    public bool TryPlace()
     {
-        int attempts = 0;
+        Debug.Log($"📌 {name} está intentando colocarse desde posición: {transform.position}");
 
-        while (attempts < maxAttempts)
-        {
-            if (TryPlaceOnTerrain())
-            {
-                if (debug) Debug.Log($"✅ {gameObject.name} colocado sobre el terreno.");
-                yield break;
-            }
+        Collider[] colliders = Physics.OverlapSphere(transform.position, placementDetectionRadius, LayerMask.GetMask(terrainLayerName));
+        Debug.Log($"🔎 {name}: {colliders.Length} colisionadores detectados en layer {terrainLayerName}");
 
-            attempts++;
-            yield return new WaitForSeconds(retryDelay);
-        }
-
-        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
-    }
-
-    private bool TryPlaceOnTerrain()
-    {
-        Collider[] colliders = Physics.OverlapSphere(transform.position, HexRenderer.SharedOuterRadius * 1.5f, LayerMask.GetMask(terrainLayerName));
         foreach (var col in colliders)
         {
+            Debug.Log($" - 🎯 Collider: {col.name}");
+
             HexRenderer hex = col.GetComponentInParent<HexRenderer>();
-            if (hex != null) // Removed transform.childCount > 0 condition for general use
+            if (hex == null)
             {
-                TerrainUtils.SnapToHexTopFlat(transform, hex, heightOffset);
-                return true;
+                Debug.Log($" - ⛔ No es HexRenderer");
+                continue;
             }
+
+            Debug.Log($" - ✅ HexRenderer válido: {hex.name}");
+
+            TerrainUtils.SnapToHexCenterXYZ(transform, hex, heightOffset);
+            return true;
         }
 
+        Debug.LogWarning($"⚠️ {name} no pudo colocarse sobre ningún Hex válido.");
         return false;
     }
-}```
+}
+```
 
 ---
 
@@ -2222,7 +2512,7 @@ public static class HexObjectPlacer
         instance.transform.SetParent(hex.transform);
         instance.transform.rotation = Quaternion.identity;
 
-        // FIX: Changed to SnapToHexTopFlat and passing instance.transform
+        // FIX: Changed to SnapToHexTopFlat
         TerrainUtils.SnapToHexTopFlat(instance.transform, hex.GetComponent<HexRenderer>(), PlacementOffset);
 
         Debug.Log($"🌳 Objeto instanciado sobre {hex.name} en {instance.transform.position}");
@@ -2233,7 +2523,6 @@ public static class HexObjectPlacer
 
 ## 📁 ObjectPlacement/PlayerPlacementHelper.cs
 ```csharp
-// 📁 PlayerPlacementHelper.cs
 using UnityEngine;
 using System.Collections;
 
@@ -2243,24 +2532,21 @@ public class PlayerPlacementHelper : MonoBehaviour
     [SerializeField] private float heightOffset = 0.3f;
     [SerializeField] private int maxAttempts = 30;
     [SerializeField] private float retryDelay = 0.1f;
-    [SerializeField] private float placementDetectionRadius = 1f; // Increased radius for better initial detection
+    [SerializeField] private float placementDetectionRadius = 5.0f;
 
     private IEnumerator Start()
     {
-        // Wait for necessary managers to be initialized and chunks to load
         yield return new WaitUntil(() => WorldMapManager.Instance != null);
         yield return new WaitUntil(() => ChunkManager.Instance != null);
         yield return new WaitUntil(() => ChunkManager.Instance.loadedChunks.Count > 0);
-
-        // Wait a bit more for HexRenderers to be fully ready
-        yield return new WaitForSeconds(0.2f);
+        yield return new WaitForSeconds(3f); // Let hexes initialize
 
         int attempts = 0;
         while (attempts < maxAttempts)
         {
             if (TryPlace())
             {
-                Debug.Log($"✅ {gameObject.name} colocado sobre el terreno con VisualTop.");
+                Debug.Log($"✅ {gameObject.name} colocado sobre el terreno.");
                 yield break;
             }
 
@@ -2268,28 +2554,37 @@ public class PlayerPlacementHelper : MonoBehaviour
             yield return new WaitForSeconds(retryDelay);
         }
 
-        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre el terreno tras {maxAttempts} intentos.");
+        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre ningún Hex válido tras {maxAttempts} intentos.");
     }
 
     public bool TryPlace()
     {
-        // Use a larger OverlapSphere to find a hex
+        Debug.Log($"📌 {name} está intentando colocarse desde posición: {transform.position}");
+
         Collider[] colliders = Physics.OverlapSphere(transform.position, placementDetectionRadius, LayerMask.GetMask(terrainLayerName));
+        Debug.Log($"🔎 {name}: {colliders.Length} colisionadores detectados en layer {terrainLayerName}");
+
         foreach (var col in colliders)
         {
+            Debug.Log($" - 🎯 Collider: {col.name}");
+
             var hex = col.GetComponentInParent<HexRenderer>();
-            if (hex != null)
+            if (hex == null)
             {
-                // Ensure we call the correct TerrainUtils method
-                TerrainUtils.SnapToHexTopFlat(transform, hex, heightOffset);
-                return true;
+                Debug.Log($" - ⛔ No es HexRenderer");
+                continue;
             }
+
+            Debug.Log($" - ✅ HexRenderer válido: {hex.name}");
+
+            TerrainUtils.SnapToHexCenterXYZ(transform, hex, heightOffset);
+            return true;
         }
 
-        Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre terreno usando VisualTop.");
         return false;
     }
-}```
+}
+```
 
 ---
 
@@ -2309,26 +2604,41 @@ public static class TerrainUtils
     /// <param name="hexRenderer">The HexRenderer of the target hex.</param>
     /// <param name="verticalOffset">Additional offset above the hex's visual top.</param>
     public static void SnapToHexTopFlat(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
+{
+    if (objectTransform == null)
     {
-        if (objectTransform == null || hexRenderer == null) return;
-
-        // Get the bottom of the object's mesh for accurate placement
-        Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
-        float objectBottomOffset = 0f;
-        if (objectRenderer != null)
-        {
-            // Calculate the difference between the object's pivot (objectTransform.position.y) and its visual bottom
-            objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
-        }
-
-        // Calculate the target Y position based on hex's visual top and object's bottom offset
-        float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
-
-        // Set the object's position
-        Vector3 newPos = objectTransform.position;
-        newPos.y = targetY;
-        objectTransform.position = newPos;
+        Debug.LogWarning("⚠️ SnapToHexTopFlat falló: objectTransform es null.");
+        return;
     }
+
+    if (hexRenderer == null)
+    {
+        Debug.LogWarning($"⚠️ SnapToHexTopFlat falló: hexRenderer es null para {objectTransform.name}.");
+        return;
+    }
+
+    Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
+    if (objectRenderer == null)
+    {
+        Debug.LogWarning($"❌ {objectTransform.name} no tiene Renderer hijo visible. No se puede alinear.");
+        return;
+    }
+
+    float objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
+    float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
+
+    Vector3 hexPos = hexRenderer.transform.position;
+
+    objectTransform.position = new Vector3(
+        hexPos.x,
+        targetY,
+        hexPos.z
+    );
+
+    Debug.Log($"📍 {objectTransform.name} alineado a ({hexPos.x:F2}, {targetY:F2}, {hexPos.z:F2}) sobre {hexRenderer.name} (VisualTopY={hexRenderer.VisualTopY:F3}, offset={verticalOffset:F3})");
+}
+
+
 
     /// <summary>
     /// Calculates the world position of a hex's center at a given Y-height.
@@ -2343,6 +2653,52 @@ public static class TerrainUtils
         worldPos.y = yHeight;
         return worldPos;
     }
+
+    public static void SnapToHexCenterY(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
+    {
+        if (objectTransform == null || hexRenderer == null)
+        {
+            Debug.LogWarning("⚠️ SnapToHexCenterY falló: Transform o HexRenderer es null.");
+            return;
+        }
+
+        Vector3 pos = objectTransform.position;
+        pos.y = hexRenderer.transform.position.y + verticalOffset;
+        objectTransform.position = pos;
+
+        Debug.Log($"📍 {objectTransform.name} colocado en Y={pos.y:F2} sobre {hexRenderer.name}.");
+    }
+
+public static void SnapToHexCenterXYZ(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
+{
+    if (objectTransform == null || hexRenderer == null)
+    {
+        Debug.LogWarning("⚠️ SnapToHexCenterXYZ falló: Transform o HexRenderer es null.");
+        return;
+    }
+
+    Vector3 hexPos = hexRenderer.transform.position;
+    Vector3 newPos = new Vector3(hexPos.x, hexPos.y + verticalOffset, hexPos.z);
+    objectTransform.position = newPos;
+
+    Debug.Log($"📍 {objectTransform.name} colocado en ({newPos.x:F2}, {newPos.y:F2}, {newPos.z:F2}) sobre {hexRenderer.name}.");
+}
+
+/// <summary>
+/// Devuelve la altura visual superior del hexágono, considerando su escala y altura base.
+/// </summary>
+public static float GetHexVisualTopY(HexRenderer hexRenderer, float verticalOffset = 0f)
+{
+    if (hexRenderer == null)
+    {
+        Debug.LogWarning("⚠️ HexRenderer es null en GetHexVisualTopY.");
+        return 0f;
+    }
+
+    return hexRenderer.transform.position.y + hexRenderer.columnHeight * hexRenderer.heightScale + verticalOffset;
+}
+
+
 }```
 
 ---
@@ -2375,18 +2731,21 @@ public class PlayerController : MonoBehaviour
         UpdateChunkLoading();
     }
 
-    void HandleKeyboardMovement()
-    {
-        if (Time.time - lastMoveTime < moveCooldown)
-            return;
+   void HandleKeyboardMovement()
+{
+    if (Time.time - lastMoveTime < moveCooldown)
+        return;
 
-        if (Input.GetKeyDown(KeyCode.W)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NE));
-        if (Input.GetKeyDown(KeyCode.E)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.E));
-        if (Input.GetKeyDown(KeyCode.D)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SE));
-        if (Input.GetKeyDown(KeyCode.S)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SW));
-        if (Input.GetKeyDown(KeyCode.A)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.W));
-        if (Input.GetKeyDown(KeyCode.Q)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NW));
-    }
+    if (Input.GetKeyDown(KeyCode.W)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NW));   // Norte visual
+    if (Input.GetKeyDown(KeyCode.E)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.NE));   // Noreste
+    if (Input.GetKeyDown(KeyCode.D)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SE));   // Sureste
+    if (Input.GetKeyDown(KeyCode.S)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.SW));   // Sur
+    if (Input.GetKeyDown(KeyCode.A)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.W));    // Suroeste
+    if (Input.GetKeyDown(KeyCode.Q)) MoveTo(currentCoordinates.GetNeighbor(HexDirection.E));    // Noroeste
+}
+
+
+
 
     void MoveTo(HexCoordinates newCoord)
     {
@@ -2593,31 +2952,78 @@ public class PriorityQueue<T>
 
 ## 📁 Units/UnitGrowndFollower.cs
 ```csharp
-// 📁 UnitGroundFollower.cs
 using UnityEngine;
 
 [DisallowMultipleComponent]
 public class UnitGroundFollower : MonoBehaviour
 {
-    [SerializeField] private string terrainLayer = "Terrain";
-    [SerializeField] private float verticalOffset = 0.01f; // Small offset above the terrain
+    // Changed from string to LayerMask, assign this in the Inspector!
+    public LayerMask terrainLayer; 
+    [SerializeField] private float minHeightThreshold = 0.01f; 
 
-    private void LateUpdate() // Use LateUpdate to ensure all other movements for the frame are done
+
+    private void LateUpdate()
     {
         HexRenderer hex = GetClosestHexBelow();
         if (hex == null) return;
 
-        // Snap the unit to the hex's visual top
-        TerrainUtils.SnapToHexTopFlat(transform, hex, verticalOffset);
+        Renderer rend = GetComponentInChildren<Renderer>();
+        float topY = hex.VisualTopY;
+
+        float objectBottom = rend.bounds.center.y - rend.bounds.extents.y;
+        float adjustment = topY - objectBottom;
+
+        // Solo ajustar si hay diferencia real
+        if (Mathf.Abs(adjustment) > minHeightThreshold)
+        {
+            transform.position += new Vector3(0f, adjustment, 0f);
+            Debug.DrawLine(transform.position, transform.position + Vector3.down * 1f, Color.magenta, 2f);
+        }
     }
 
-    /// <summary>
-    /// Finds the closest HexRenderer below the object.
-    /// </summary>
     private HexRenderer GetClosestHexBelow()
     {
-        // Use a slightly larger radius for detection based on HexRenderer's static property
-        Collider[] hits = Physics.OverlapSphere(transform.position, HexRenderer.SharedOuterRadius * 1.5f, LayerMask.GetMask(terrainLayer));
+        // Increased radius for more reliable detection
+        Collider[] hits = Physics.OverlapSphere(transform.position, 1.5f, terrainLayer); 
+        foreach (var col in hits)
+        {
+            var hex = col.GetComponentInParent<HexRenderer>();
+            if (hex != null) return hex;
+        }
+
+        return null;
+    }
+}```
+
+---
+
+## 📁 Units/UnitHighlightFollower.cs
+```csharp
+using UnityEngine;
+
+public class UnitighlightFollower : MonoBehaviour
+{
+    [SerializeField] private Transform target; // Jugador u objeto a seguir
+    // Changed from string to LayerMask, assign this in the Inspector!
+    public LayerMask terrainLayer; 
+    [SerializeField] private float detectionRadius = 1.5f; // Increased radius for more reliable detection
+    [SerializeField] private float verticalOffset = 0.01f;
+
+    private void LateUpdate()
+    {
+        if (target == null) return;
+
+        HexRenderer hex = GetClosestHexBelow(target.position);
+        if (hex != null)
+        {
+            TerrainUtils.SnapToHexTopFlat(transform, hex, verticalOffset);
+            Debug.DrawLine(transform.position, transform.position + Vector3.up, Color.magenta, 0.2f);
+        }
+    }
+
+    private HexRenderer GetClosestHexBelow(Vector3 position)
+    {
+        Collider[] hits = Physics.OverlapSphere(position, detectionRadius, terrainLayer);
         foreach (var col in hits)
         {
             HexRenderer hex = col.GetComponentInParent<HexRenderer>();
@@ -2629,282 +3035,8 @@ public class UnitGroundFollower : MonoBehaviour
 
 ---
 
-## 📁 Units/UnitHighlightFollower.cs
-```csharp
-// 📁 UnitHighlightFollower.cs
-using UnityEngine;
-using System.Collections.Generic;
-
-public class UnitHighlightFollower : MonoBehaviour
-{
-    [SerializeField] private string terrainLayer = "Terrain"; // Layer for terrain detection
-
-    [Header("Single Hex Highlight Settings (Mouse Hover)")]
-    [SerializeField] private Material hoverHighlightMaterial; // Material for the hovered hex
-    [SerializeField] private Color hoverHighlightColor = Color.yellow;
-    [SerializeField] private float hoverVerticalOffset = 0.01f; // Offset above the hex for hover highlight
-
-    [Header("Path Highlighting Settings")]
-    [SerializeField] private bool enablePathHighlighting = true; // Toggle path highlighting in Inspector
-    [SerializeField] private Material pathHighlightMaterial; // Material for path hexes
-    [SerializeField] private Color pathHighlightColor = Color.blue;
-    [SerializeField] private float pathHighlightVerticalOffset = 0.02f; // Slightly higher than hover highlight
-
-    private HexBehavior currentHoveredHex; // The hex currently under the mouse
-    private List<GameObject> activePathHighlights = new List<GameObject>(); // Stores instantiated path highlight objects
-    private GameObject activeHoverHighlight; // Stores the instantiated hover highlight object
-
-    private UnitMover selectedUnitMover; // Reference to the currently selected unit
-
-    void Awake()
-    {
-        // Subscribe to UnitSelector's event to know which unit is selected and hovered
-        UnitSelector.OnUnitSelected += HandleUnitSelected;
-        UnitSelector.OnUnitHovered += HandleUnitHovered;
-
-        // Create the hover highlight instance once
-        if (hoverHighlightMaterial != null)
-        {
-            activeHoverHighlight = CreateHighlightObject("HoverHighlight", hoverHighlightMaterial, hoverHighlightColor);
-            activeHoverHighlight.SetActive(false); // Start disabled
-        }
-        else
-        {
-            Debug.LogWarning("UnitHighlightFollower: Hover Highlight Material is not assigned! Hover highlight will not show.");
-        }
-    }
-
-    void OnDestroy()
-    {
-        // Unsubscribe from events to prevent memory leaks
-        UnitSelector.OnUnitSelected -= HandleUnitSelected;
-        UnitSelector.OnUnitHovered -= HandleUnitHovered;
-
-        // Clean up instantiated objects
-        if (activeHoverHighlight != null) Destroy(activeHoverHighlight);
-        ClearPathHighlight();
-    }
-
-    void Update()
-    {
-        // Update path highlight only if a unit is selected and path highlighting is enabled
-        if (selectedUnitMover != null && enablePathHighlighting)
-        {
-            UpdatePathHighlight();
-        }
-        else if (activePathHighlights.Count > 0)
-        {
-            // Clear path highlight if unit is deselected or path highlighting is disabled
-            ClearPathHighlight();
-        }
-    }
-
-    /// <summary>
-    /// Creates a simple quad mesh GameObject to be used as a highlight.
-    /// </summary>
-    private GameObject CreateHighlightObject(string name, Material mat, Color color)
-    {
-        GameObject highlight = new GameObject(name);
-        MeshFilter mf = highlight.AddComponent<MeshFilter>();
-        MeshRenderer mr = highlight.AddComponent<MeshRenderer>();
-        
-        // Create a simple plane mesh for the highlight
-        Mesh highlightMesh = new Mesh();
-        Vector3[] vertices = new Vector3[4];
-        Vector2[] uv = new Vector2[4];
-        int[] triangles = new int[6];
-
-        // Define a simple quad (slightly smaller to avoid Z-fighting with hex mesh)
-        float halfRadius = HexRenderer.SharedOuterRadius * 0.95f; 
-        vertices[0] = new Vector3(-halfRadius, 0, -halfRadius);
-        vertices[1] = new Vector3( halfRadius, 0, -halfRadius);
-        vertices[2] = new Vector3( halfRadius, 0,  halfRadius);
-        vertices[3] = new Vector3(-halfRadius, 0,  halfRadius);
-
-        uv[0] = new Vector2(0, 0);
-        uv[1] = new Vector2(1, 0);
-        uv[2] = new Vector2(1, 1);
-        uv[3] = new Vector2(0, 1);
-
-        triangles[0] = 0; triangles[1] = 2; triangles[2] = 1;
-        triangles[3] = 0; triangles[4] = 3; triangles[5] = 2;
-
-        highlightMesh.vertices = vertices;
-        highlightMesh.uv = uv;
-        highlightMesh.triangles = triangles;
-        highlightMesh.RecalculateNormals();
-
-        mf.mesh = highlightMesh;
-        mr.material = mat;
-        mr.material.color = color; // Set the color of the material
-
-        return highlight;
-    }
-
-    /// <summary>
-    /// Handles the hex hovered event from UnitSelector.
-    /// </summary>
-    private void HandleUnitHovered(HexBehavior hoveredHex)
-    {
-        if (hoveredHex != currentHoveredHex) // Only update if the hovered hex has changed
-        {
-            currentHoveredHex = hoveredHex;
-            if (currentHoveredHex != null)
-            {
-                PlaceHoverHighlight(currentHoveredHex);
-            }
-            else
-            {
-                ClearHoverHighlight();
-            }
-        }
-    }
-
-    private void PlaceHoverHighlight(HexBehavior hex)
-    {
-        if (activeHoverHighlight == null) return;
-
-        HexRenderer hexRenderer = hex.GetComponent<HexRenderer>();
-        if (hexRenderer != null)
-        {
-            TerrainUtils.SnapToHexTopFlat(activeHoverHighlight.transform, hexRenderer, hoverVerticalOffset);
-            activeHoverHighlight.transform.SetParent(hex.transform); // Make it a child of the hex to follow it
-            activeHoverHighlight.SetActive(true);
-        }
-        else
-        {
-            Debug.LogWarning($"UnitHighlightFollower: Hovered hex {hex.name} is missing HexRenderer. Cannot place hover highlight.");
-            activeHoverHighlight.SetActive(false);
-        }
-    }
-
-    private void ClearHoverHighlight()
-    {
-        if (activeHoverHighlight != null && activeHoverHighlight.activeSelf)
-        {
-            activeHoverHighlight.SetActive(false);
-            activeHoverHighlight.transform.SetParent(null); // Detach from parent when not active
-        }
-        currentHoveredHex = null;
-    }
-
-    /// <summary>
-    /// Updates the path highlight based on the currently selected unit's path.
-    /// </summary>
-    private void UpdatePathHighlight()
-    {
-        if (selectedUnitMover == null || selectedUnitMover.currentHex == null || !enablePathHighlighting)
-        {
-            ClearPathHighlight();
-            return;
-        }
-
-        // Get the path from the Pathfinder (assuming HexPathfinder.Instance.debugPath is the active path)
-        List<HexBehavior> path = HexPathfinder.Instance.debugPath;
-
-        // Clear existing highlights if the path has changed or is empty
-        if (path == null || path.Count == 0 || !PathsAreEqual(path, activePathHighlights))
-        {
-            ClearPathHighlight();
-        }
-
-        if (path != null && path.Count > 0)
-        {
-            for (int i = 0; i < path.Count; i++)
-            {
-                // Create new highlight if we don't have enough instances
-                if (i >= activePathHighlights.Count)
-                {
-                    GameObject newHighlight = CreateHighlightObject($"PathHighlight_{i}", pathHighlightMaterial, pathHighlightColor);
-                    activePathHighlights.Add(newHighlight);
-                }
-
-                GameObject highlight = activePathHighlights[i];
-                HexRenderer hexRenderer = path[i].GetComponent<HexRenderer>();
-                if (hexRenderer != null)
-                {
-                    TerrainUtils.SnapToHexTopFlat(highlight.transform, hexRenderer, pathHighlightVerticalOffset);
-                    highlight.transform.SetParent(path[i].transform); // Make it a child of the hex
-                    highlight.SetActive(true);
-                }
-                else
-                {
-                    Debug.LogWarning($"UnitHighlightFollower: Path hex {path[i].name} is missing HexRenderer. Cannot place path highlight.");
-                    highlight.SetActive(false);
-                }
-            }
-
-            // Deactivate any excess highlights from previous longer paths
-            for (int i = path.Count; i < activePathHighlights.Count; i++)
-            {
-                activePathHighlights[i].SetActive(false);
-                activePathHighlights[i].transform.SetParent(null); // Detach
-            }
-        }
-    }
-
-    private void ClearPathHighlight()
-    {
-        foreach (GameObject highlight in activePathHighlights)
-        {
-            if (highlight != null)
-            {
-                Destroy(highlight); // Destroy highlight objects
-            }
-        }
-        activePathHighlights.Clear(); // Clear the list
-    }
-
-    /// <summary>
-    /// Compares two paths to see if they are identical (based on HexBehavior references).
-    /// </summary>
-    private bool PathsAreEqual(List<HexBehavior> path1, List<GameObject> path2Highlights)
-    {
-        if (path1 == null && path2Highlights.Count == 0) return true;
-        if (path1 == null || path2Highlights == null) return false;
-        if (path1.Count != path2Highlights.Count) return false;
-
-        for (int i = 0; i < path1.Count; i++)
-        {
-            // Get the HexBehavior from the highlight's parent (assuming highlight is child of hex)
-            HexBehavior highlightHex = (path2Highlights[i] != null && path2Highlights[i].transform.parent != null)
-                                      ? path2Highlights[i].transform.parent.GetComponent<HexBehavior>()
-                                      : null;
-
-            if (path1[i] != highlightHex)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /// <summary>
-    /// Handles the selection/deselection of units to update the internal selectedUnitMover reference.
-    /// </summary>
-    private void HandleUnitSelected(UnitMover unit, bool isSelected)
-    {
-        if (isSelected)
-        {
-            selectedUnitMover = unit;
-        }
-        else
-        {
-            if (selectedUnitMover == unit) // Only clear if it's the currently selected one
-            {
-                selectedUnitMover = null;
-                ClearPathHighlight(); // Clear path if the unit is deselected
-            }
-        }
-        ClearHoverHighlight(); // Always clear hover highlight when selection changes
-    }
-}```
-
----
-
 ## 📁 Units/UnitMover.cs
 ```csharp
-// 📁 UnitMover.cs
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
@@ -2913,52 +3045,35 @@ using System.Collections.Generic;
 public class UnitMover : MonoBehaviour
 {
     public float moveSpeed = 5f;
-    [SerializeField] private string terrainLayer = "Terrain";
-    [SerializeField] private float minHeightThreshold = 0.01f; // For movement completion detection
+    // Changed from string to LayerMask, assign this in the Inspector!
+    public LayerMask terrainLayer; 
+    [SerializeField] private float minHeightThreshold = 0.01f;
 
     private bool isMoving = false;
     private Queue<HexBehavior> currentPath = new();
-    public HexBehavior currentHex { get; private set; } // Public getter for current hex
+    public HexBehavior currentHex;
 
     void Start()
     {
-        // Initial snap to ground
-        SnapToGroundAtStart();
-        currentHex = GetClosestHexBelow(); // Initialize currentHex after initial placement
+        SnapToHexVisualTop();
+        currentHex = GetClosestHexBelow();
+    }
 
-        // Check for UnitGroundFollower
-        if (GetComponent<UnitGroundFollower>() == null)
-        {
-            Debug.LogWarning("UnitMover: Missing UnitGroundFollower component. Unit might not snap to terrain correctly during movement.");
-        }
+    void LateUpdate() // Using LateUpdate to ensure all movement for the frame is done first
+    {
+        AdjustToGround();
     }
 
     void Update()
     {
         if (!isMoving && currentPath.Count > 0)
-        {
             StartCoroutine(FollowPath(currentPath));
-        }
     }
 
-    /// <summary>
-    /// Moves the unit to the target hex by calculating a path.
-    /// </summary>
     public void MoveTo(HexBehavior targetHex)
     {
-        if (currentHex == null)
-        {
-            Debug.LogWarning("UnitMover: Current hex is null. Cannot calculate path. Ensure player is placed on terrain.");
-            return;
-        }
-        if (targetHex == null)
-        {
-            Debug.LogWarning("UnitMover: Target hex is null. Cannot move.");
-            return;
-        }
+        if (currentHex == null || targetHex == null) return;
 
-
-        // Use HexPathfinder to find the path
         List<HexBehavior> path = HexPathfinder.Instance.FindPath(currentHex, targetHex);
 
         if (path == null || path.Count == 0)
@@ -2967,7 +3082,6 @@ public class UnitMover : MonoBehaviour
             return;
         }
 
-        // Store the path for debugging/visualization in UnitHighlightFollower
         HexPathfinder.Instance.debugPath = path;
         currentPath = new Queue<HexBehavior>(path);
     }
@@ -2978,80 +3092,103 @@ public class UnitMover : MonoBehaviour
 
         while (path.Count > 0)
         {
-            HexBehavior nextStep = path.Dequeue();
-            currentHex = nextStep; // Update currentHex as we move
+            HexBehavior step = path.Dequeue();
+            HexRenderer hex = step.GetComponent<HexRenderer>();
+            float topY = hex.VisualTopY;
 
-            HexRenderer hexRenderer = nextStep.GetComponent<HexRenderer>();
-            if (hexRenderer == null)
+            Renderer rend = GetComponentInChildren<Renderer>();
+            float objectBottom = rend.bounds.center.y - rend.bounds.extents.y;
+            float adjustment = topY + (rend.bounds.extents.y - (transform.position.y - objectBottom));
+
+            Vector3 target = new Vector3(
+                step.transform.position.x,
+                topY + (rend.bounds.extents.y - (transform.position.y - objectBottom)),
+                step.transform.position.z
+            );
+
+            while (Vector3.Distance(transform.position, target) > 0.05f)
             {
-                Debug.LogWarning($"UnitMover: Hex {nextStep.name} is missing HexRenderer. Cannot move properly.");
-                isMoving = false;
-                yield break;
-            }
-
-            // Get the target world position for the unit, including the hex's visual top
-            Vector3 targetPosition = TerrainUtils.GetHexWorldPosition(nextStep.coordinates, hexRenderer.VisualTopY, HexRenderer.SharedOuterRadius);
-
-            // Move the unit towards the target position
-            while (Vector3.Distance(transform.position, targetPosition) > minHeightThreshold)
-            {
-                transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+                transform.position = Vector3.MoveTowards(transform.position, target, moveSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            transform.position = targetPosition; // Ensure it lands exactly on target
+            currentHex = step;
+            yield return null;
         }
 
         isMoving = false;
-        HexPathfinder.Instance.debugPath = null; // Clear path once movement is done
     }
 
-    /// <summary>
-    /// Finds the closest HexBehavior below the unit.
-    /// </summary>
     private HexBehavior GetClosestHexBelow()
     {
-        // Use a larger radius for initial placement detection
-        Collider[] colliders = Physics.OverlapSphere(transform.position, HexRenderer.SharedOuterRadius * 2f, LayerMask.GetMask(terrainLayer));
+        // Increased radius for more reliable detection
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 1.5f, terrainLayer); 
         foreach (var col in colliders)
         {
-            var hex = col.GetComponentInParent<HexBehavior>();
+            var hex = col.GetComponentInParent<HexRenderer>();
             if (hex != null)
             {
-                return hex;
+                return hex.GetComponentInParent<HexBehavior>();
             }
         }
         return null;
     }
 
-    /// <summary>
-    /// Snaps the unit to the visual top of the closest hex at start.
-    /// </summary>
-    private void SnapToGroundAtStart()
-    {
-        HexRenderer hex = GetClosestHexBelowRenderer();
-        if (hex != null)
-        {
-            TerrainUtils.SnapToHexTopFlat(transform, hex, minHeightThreshold); // Use minHeightThreshold for initial offset
-        }
-        else
-        {
-            Debug.LogWarning($"UnitMover: Could not find hex to snap to at Start for {gameObject.name}. This might cause 'Current hex is null' warnings.");
-        }
-    }
-
-    /// <summary>
-    /// Helper to get the HexRenderer of the closest hex below.
-    /// </summary>
     private HexRenderer GetClosestHexBelowRenderer()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, HexRenderer.SharedOuterRadius * 2f, LayerMask.GetMask(terrainLayer));
+        // Increased radius for more reliable detection
+        Collider[] hits = Physics.OverlapSphere(transform.position, 1.5f, terrainLayer); 
         foreach (var col in hits)
         {
             var hex = col.GetComponentInParent<HexRenderer>();
             if (hex != null) return hex;
         }
         return null;
+    }
+
+    private void SnapToHexVisualTop()
+    {
+        // Increased radius for more reliable detection
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 1.5f, terrainLayer); 
+        foreach (var col in colliders)
+        {
+            var hex = col.GetComponentInParent<HexRenderer>();
+            if (hex != null)
+            {
+                Renderer rend = GetComponentInChildren<Renderer>();
+                if (rend == null) return;
+
+                float topY = hex.VisualTopY;
+                float objectBottom = rend.bounds.center.y - rend.bounds.extents.y;
+                float adjustment = topY - objectBottom;
+
+                if (Mathf.Abs(adjustment) > minHeightThreshold)
+                {
+                    transform.position += new Vector3(0f, adjustment, 0f);
+                    Debug.DrawLine(transform.position, transform.position + Vector3.up * 1f, Color.cyan, 2f);
+                }
+                return;
+            }
+        }
+    }
+
+    private void AdjustToGround()
+    {
+        HexRenderer hex = GetClosestHexBelowRenderer();
+        if (hex == null) return;
+
+        Renderer rend = GetComponentInChildren<Renderer>();
+        if (rend == null) return;
+
+        float topY = hex.VisualTopY;
+        float objectBottom = rend.bounds.center.y - rend.bounds.extents.y;
+        float adjustment = topY - objectBottom;
+
+        if (Mathf.Abs(adjustment) > minHeightThreshold)
+        {
+            transform.position += new Vector3(0f, adjustment, 0f);
+            Debug.DrawLine(transform.position, transform.position + Vector3.down * 1f, Color.green, 0.1f);
+        }
     }
 }```
 
@@ -3083,50 +3220,77 @@ public class UnitSelector : MonoBehaviour
     }
 
     private void HandleSelectionInput()
+{
+    if (Input.GetMouseButtonDown(0))
     {
-        // Selection with left click
-        if (Input.GetMouseButtonDown(0))
-        {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
+        Debug.Log("🖱️ Clic izquierdo detectado.");
 
-            // First, try to hit a unit using the unitLayer
-            if (Physics.Raycast(ray, out hit, hoverRaycastDistance, unitLayer))
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        Debug.DrawRay(ray.origin, ray.direction * hoverRaycastDistance, Color.yellow, 2f);
+
+        if (Physics.Raycast(ray, out hit, hoverRaycastDistance, unitLayer))
+        {
+            Debug.Log($"🎯 Raycast impactó: {hit.collider.name} (Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)})");
+
+            // Intenta encontrar UnitMover en varias partes de la jerarquía
+            UnitMover clickedUnit = hit.collider.GetComponent<UnitMover>()
+                                   ?? hit.collider.GetComponentInChildren<UnitMover>()
+                                   ?? hit.collider.GetComponentInParent<UnitMover>();
+
+            if (clickedUnit != null)
             {
-                UnitMover clickedUnit = hit.collider.GetComponentInParent<UnitMover>();
-                if (clickedUnit != null)
-                {
-                    SelectUnit(clickedUnit);
-                }
+                Debug.Log($"✅ Unidad con UnitMover encontrada: {clickedUnit.gameObject.name}");
+                SelectUnit(clickedUnit);
             }
-            else // Clicked elsewhere, deselect unit
+            else
             {
-                DeselectUnit();
+                Debug.LogWarning("⚠️ Raycast impactó algo en unitLayer, pero no encontró UnitMover en la jerarquía.");
             }
         }
-
-        // Movement with right click (if a unit is selected)
-        if (Input.GetMouseButtonDown(1) && selectedUnit != null)
+        else
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
-
-            // Try to hit the terrain to move
-            if (Physics.Raycast(ray, out hit, hoverRaycastDistance, terrainLayer))
-            {
-                HexBehavior hex = hit.collider.GetComponentInParent<HexBehavior>();
-                if (hex != null)
-                {
-                    UnitMover mover = selectedUnit.GetComponent<UnitMover>();
-                    if (mover != null)
-                    {
-                        mover.MoveTo(hex);
-                        Debug.Log($"🏃 Moviendo unidad a {hex.coordinates.Q}, {hex.coordinates.R}");
-                    }
-                }
-            }
+            Debug.Log("👀 Raycast no impactó ningún objeto en la capa de unidades.");
+            DeselectUnit();
         }
     }
+
+    if (Input.GetMouseButtonDown(1) && selectedUnit != null)
+    {
+        Debug.Log("🖱️ Clic derecho detectado. Intentando mover unidad seleccionada...");
+
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, hoverRaycastDistance, terrainLayer))
+        {
+            HexBehavior hex = hit.collider.GetComponentInParent<HexBehavior>();
+            if (hex != null)
+            {
+                UnitMover mover = selectedUnit.GetComponent<UnitMover>();
+                if (mover != null)
+                {
+                    Debug.Log($"🏃 Moviendo unidad a Hex ({hex.coordinates.Q}, {hex.coordinates.R})");
+                    mover.MoveTo(hex);
+                }
+                else
+                {
+                    Debug.LogWarning("⚠️ Unidad seleccionada no tiene UnitMover.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ El objeto clickeado no tiene HexBehavior en su jerarquía.");
+            }
+        }
+        else
+        {
+            Debug.Log("❌ Clic derecho no impactó el terreno.");
+        }
+    }
+}
+
 
     /// <summary>
     /// Detects which hex the mouse is currently hovering over and invokes the OnUnitHovered event.

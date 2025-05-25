@@ -1,16 +1,26 @@
 using UnityEngine;
 
+// Control visual para editar PerlinSettings desde el inspector.
 public class PerlinSettingsController : MonoBehaviour
 {
-    public PerlinSettings perlinSettings;
+    [Header("Perlin Settings Asset")]
+    public PerlinSettings perlinSettings; // Asigna aquí el asset en el inspector
 
+    [Header("Editable Settings")]
     [Range(0.001f, 15f)] public float elevationFreq = 0.02f;
     [Range(0.001f, 1f)] public float moistureFreq = 0.03f;
     [Range(0.001f, 1f)] public float tempFreq = 0.015f;
+    public int seed = 1000;
 
-    public int elevationSeedOffset = 1000;
-    public int moistureSeedOffset = 2000;
-    public int tempSeedOffset = 3000;
+    [Header("Perlin Fractal Settings")]
+    [Range(1, 10)] public int octaves = 6;
+    [Range(1f, 4f)] public float lacunarity = 2.5f;
+    [Range(0.1f, 1f)] public float persistence = 0.4f;
+
+    [Header("Anomaly Settings")]
+    [Range(0f, 1f)] public float anomalyStrength = 0.25f;
+    [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
+    public float anomalyFrequency = 0.1f;
 
     void OnValidate()
     {
@@ -19,35 +29,20 @@ public class PerlinSettingsController : MonoBehaviour
             perlinSettings.elevationFreq = elevationFreq;
             perlinSettings.moistureFreq = moistureFreq;
             perlinSettings.tempFreq = tempFreq;
+            perlinSettings.seed = seed;
 
-            perlinSettings.elevationSeedOffset = elevationSeedOffset;
-            perlinSettings.moistureSeedOffset = moistureSeedOffset;
-            perlinSettings.tempSeedOffset = tempSeedOffset;
+            // Aplicar parámetros avanzados de Perlin
+            perlinSettings.octaves = octaves;
+            perlinSettings.lacunarity = lacunarity;
+            perlinSettings.persistence = persistence;
+
+            perlinSettings.anomalyStrength = anomalyStrength;
+            perlinSettings.anomalyThreshold = anomalyThreshold;
+            perlinSettings.anomalyFrequency = anomalyFrequency;
+
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(perlinSettings);
+#endif
         }
     }
-
-    void Start()
-    {
-        if (perlinSettings != null)
-        {
-            elevationFreq = perlinSettings.elevationFreq;
-            moistureFreq = perlinSettings.moistureFreq;
-            tempFreq = perlinSettings.tempFreq;
-
-            elevationSeedOffset = perlinSettings.elevationSeedOffset;
-            moistureSeedOffset = perlinSettings.moistureSeedOffset;
-            tempSeedOffset = perlinSettings.tempSeedOffset;
-        }
-    }
-
-    [Header("Anomaly Settings")]
-    [Range(0f, 1f)]
-    public float anomalyStrength = 0.25f;
-
-    [Range(0f, 1f)]
-    public float anomalyThreshold = 0.15f;
-
-    public float anomalyFrequency = 0.1f;
-    public int anomalySeedOffset = 5000;
-
 }

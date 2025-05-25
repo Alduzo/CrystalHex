@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archivo de salida
-output_file="250523_ProjectDebug.md"
+output_file="250524_TerrainTypes_config.md"
 
 # Limpia archivo si ya existe
 echo "# HexMap – Código fuente consolidado" > "$output_file"

@@ -17,7 +17,7 @@ public class HexRenderer : MonoBehaviour
     public Color sideColor = Color.black;
 
     [Header("Scale Settings")]
-    [Range(0.01f, 1f)] public float heightScale = 0.25f;
+    [Range(0.01f, 5f)] public float heightScale = 20f;
 
     Mesh _mesh;
     MeshFilter _mf;
@@ -156,7 +156,7 @@ public class HexRenderer : MonoBehaviour
         {
             _mr.sharedMaterial = material;
         }
-        Debug.Log($"{name} – Mesh vertices: {_mesh.vertexCount}, assigned to MeshCollider: {_mc.sharedMesh != null}");
+      //  Debug.Log($"{name} – Mesh vertices: {_mesh.vertexCount}, assigned to MeshCollider: {_mc.sharedMesh != null}");
 
     }
 
@@ -173,36 +173,6 @@ public class HexRenderer : MonoBehaviour
 
     }
     
-   void OnDrawGizmos()
-    {
-        if (!HexBorderManager.IsVisible) return;
-
-
-        Gizmos.color = HexBorderManager.BorderColor;
-
-        float outerRadius = HexRenderer.SharedOuterRadius;
-        float yOffset = HexBorderManager.HeightOffset;
-        Vector3 center = transform.position + Vector3.up * yOffset;
-
-        for (int i = 0; i < 6; i++)
-        {
-            float angle1 = Mathf.Deg2Rad * (60f * i);
-            float angle2 = Mathf.Deg2Rad * (60f * (i + 1));
-
-            Vector3 corner1 = new Vector3(
-                center.x + outerRadius * Mathf.Cos(angle1),
-                center.y,
-                center.z + outerRadius * Mathf.Sin(angle1)
-            );
-            Vector3 corner2 = new Vector3(
-                center.x + outerRadius * Mathf.Cos(angle2),
-                center.y,
-                center.z + outerRadius * Mathf.Sin(angle2)
-            );
-
-            Gizmos.DrawLine(corner1, corner2);
-        }
-    }
 
 
     

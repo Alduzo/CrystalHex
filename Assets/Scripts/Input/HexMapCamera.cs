@@ -99,9 +99,12 @@ public class HexMapCamera : MonoBehaviour
         }
 
         // --- ROTATION (Q Key for Left Rotation) ---
-        // 'E' is now dedicated to vertical zoom.
+        // 'J' is now dedicated to vertical zoom.
         float rotationDelta = 0f;
-        if (Input.GetKey(KeyCode.Q)) rotationDelta = -1f; // Q rotates left
+        if (Input.GetKey(KeyCode.U)) rotationDelta = -1f; // U: gira hacia la izquierda
+
+        if (Input.GetKey(KeyCode.I)) rotationDelta = 1f;  // I: gira hacia la derecha
+
 
         if (rotationDelta != 0f)
         {
@@ -110,8 +113,8 @@ public class HexMapCamera : MonoBehaviour
 
         // --- VERTICAL ZOOM (Y-level) (E/R Keys) ---
         float yMoveDelta = 0f;
-        if (Input.GetKey(KeyCode.O)) yMoveDelta = -1f; // E to zoom in (move camera down)
-        if (Input.GetKey(KeyCode.L)) yMoveDelta = 1f;  // R to zoom out (move camera up)
+        if (Input.GetKey(KeyCode.L)) yMoveDelta = -1f; // E to zoom in (move camera down)
+        if (Input.GetKey(KeyCode.O)) yMoveDelta = 1f;  // R to zoom out (move camera up)
 
         if (yMoveDelta != 0f)
         {

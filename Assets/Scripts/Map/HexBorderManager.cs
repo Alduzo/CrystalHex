@@ -1,10 +1,9 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Collections;
 
 public class HexBorderManager : MonoBehaviour
 {
-    private static HexBorderManager instance;
+    public static HexBorderManager Instance;
 
     [Header("Border Settings")]
     [SerializeField] private bool bordersVisible = true;
@@ -13,27 +12,33 @@ public class HexBorderManager : MonoBehaviour
     [SerializeField] private float lineWidth = 0.05f;
     [SerializeField] private float outerRadius = 1f;
 
-    private List<LineRenderer> borderLines = new List<LineRenderer>();
+    private Dictionary<HexRenderer, LineRenderer> borderLines = new();
 
-    public static bool IsVisible => instance != null && instance.bordersVisible;
-    public static float HeightOffset => instance != null ? instance.heightOffset : 0.1f;
-    public static Color BorderColor => instance != null ? instance.borderColor : Color.white;
-    public static float LineWidth => instance != null ? instance.lineWidth : 0.05f;
+    public static bool IsVisible => Instance != null && Instance.bordersVisible;
+    public static float HeightOffset => Instance != null ? Instance.heightOffset : 0.1f;
+    public static Color BorderColor => Instance != null ? Instance.borderColor : Color.white;
+    public static float LineWidth => Instance != null ? Instance.lineWidth : 0.05f;
 
-    private IEnumerator Start()
-{
-    yield return new WaitForSeconds(1f);  // O ajusta según tiempo de carga
-    GenerateBorders();
-}
-
-
-    private void GenerateBorders()
+    private void Awake()
     {
-        borderLines.Clear();
-
-        HexRenderer[] hexes = FindObjectsOfType<HexRenderer>();
-        foreach (HexRenderer hex in hexes)
+        if (Instance != null && Instance != this)
         {
+            Destroy(this);
+        }
+        else
+        {
+            Instance = this;
+            Debug.Log("✅ HexBorderManager iniciado correctamente.");
+        }
+    }
+
+    public void AddBordersForChunk(IEnumerable<HexRenderer> hexes)
+    {
+        int count = 0;
+        foreach (var hex in hexes)
+        {
+            if (borderLines.ContainsKey(hex)) continue;
+
             GameObject lineObj = new GameObject($"HexBorder_{hex.name}");
             lineObj.transform.SetParent(this.transform);
 
@@ -65,16 +70,31 @@ public class HexBorderManager : MonoBehaviour
             lr.SetPositions(corners);
             lr.enabled = bordersVisible;
 
-            borderLines.Add(lr);
+            borderLines.Add(hex, lr);
+            count++;
         }
+        Debug.Log($"🟢 Agregados {count} bordes para el chunk.");
+    }
 
-        Debug.Log($"✅ Generados {borderLines.Count} bordes hexagonales.");
+    public void RemoveBordersForChunk(IEnumerable<HexRenderer> hexes)
+    {
+        int count = 0;
+        foreach (var hex in hexes)
+        {
+            if (borderLines.TryGetValue(hex, out var lr))
+            {
+                Destroy(lr.gameObject);
+                borderLines.Remove(hex);
+                count++;
+            }
+        }
+        Debug.Log($"🔴 Eliminados {count} bordes del chunk.");
     }
 
     public void ToggleBorders()
     {
         bordersVisible = !bordersVisible;
-        foreach (var lr in borderLines)
+        foreach (var lr in borderLines.Values)
         {
             lr.enabled = bordersVisible;
         }
@@ -84,7 +104,7 @@ public class HexBorderManager : MonoBehaviour
     public void SetBordersVisibility(bool visible)
     {
         bordersVisible = visible;
-        foreach (var lr in borderLines)
+        foreach (var lr in borderLines.Values)
         {
             lr.enabled = visible;
         }
@@ -92,14 +112,12 @@ public class HexBorderManager : MonoBehaviour
 
     public void RefreshBorders()
     {
-        foreach (var lr in borderLines)
+        foreach (var lr in borderLines.Values)
         {
             lr.widthMultiplier = lineWidth;
             lr.material.color = borderColor;
             lr.startColor = borderColor;
             lr.endColor = borderColor;
-
-            // Aquí puedes regenerar posiciones si cambian offsets o radii
         }
     }
 }

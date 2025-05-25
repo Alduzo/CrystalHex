@@ -54,15 +54,36 @@ public class ChunkManager : MonoBehaviour
                     anyNewChunks = true;
                 }
             }
+            
         }
 
         if (anyNewChunks)
         {
             ReassignAllChunkBehaviorNeighbors();
+            List<HexRenderer> newHexes = new List<HexRenderer>();
+
+            foreach (var coord in chunksToKeep)
+            {
+                if (loadedChunks.TryGetValue(coord, out var chunk))
+                {
+                    HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
+                    if (hexes.Length > 0)
+                    {
+                        Debug.Log($"🔍 Chunk en {coord} tiene {hexes.Length} hexes.");
+                        newHexes.AddRange(hexes);
+                    }
+                }
+            }
+
+            Debug.Log($"🔍 Se encontraron {newHexes.Count} nuevos HexRenderer.");
+            HexBorderManager.Instance?.AddBordersForChunk(newHexes);
+
         }
+
 
         if (unloadRadius > 0)
         {
+            
             foreach (var coord in loadedChunks.Keys)
             {
                 int dist = Mathf.Max(
@@ -81,6 +102,10 @@ public class ChunkManager : MonoBehaviour
         {
             if (loadedChunks.TryGetValue(coord, out var chunk))
             {
+                HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
+                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
+                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
+
                 Destroy(chunk);
                 loadedChunks.Remove(coord);
             }

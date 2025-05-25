@@ -12,9 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce752a9ee35644a70ae0f9028e419afd, type: 3}
   m_Name: DefaultPerlinSettings
   m_EditorClassIdentifier: 
-  elevationFreq: 0.02
-  elevationSeedOffset: 1000
+  elevationFreq: 0.03
   moistureFreq: 0.03
-  moistureSeedOffset: 2000
   tempFreq: 0.015
-  tempSeedOffset: 3000
+  seed: 2500
+  octaves: 6
+  lacunarity: 2.5
+  persistence: 0.4
+  anomalyThreshold: 0.189
+  anomalyStrength: 0.305
+  anomalyFrequency: 0.1

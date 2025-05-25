@@ -5,16 +5,16 @@ using System.Collections.Generic;
 
 public enum TerrainType
 {
-    OceanDeep,
-    OceanShallow,
-    Beach,
+    Ocean,
+    CoastalWater,
+    SandyBeach,
+    RockyBeach,
     Plains,
     Hills,
     Valley,
-    Mountains,
-    Forest
+    Mountain,
+    Plateau
 }
-
 public enum HexType { Natural, Rural, Urban }
 public enum ResourceType { Minerals, Wood, Food, Water, Energy }
 
@@ -27,6 +27,7 @@ public class HexData
     public float moisture;
     public float temperature;
     public TerrainType terrainType;
+    public float slope;
 
     // Capa dinámica
     public HexType hexType = HexType.Natural;

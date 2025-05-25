@@ -1,5 +1,6 @@
 using UnityEngine;
 
+// contiene Lógica matemática pura (Perlin, FractalPerlin, RidgePerlin).
 
 public static class PerlinUtility
 {
@@ -31,27 +32,39 @@ public static class PerlinUtility
         return total / maxValue;
     }
 
-   public static float ApplyElevationAnomaly(
-    HexCoordinates coord,
-    float baseElevation,
-    float anomalyFreq,
-    float anomalyThreshold,
-    float anomalyStrength,
-    int seedOffset)
-{
-    float noise = Mathf.PerlinNoise(
-        (coord.Q + seedOffset) * anomalyFreq,
-        (coord.R + seedOffset) * anomalyFreq
-    );
+    public static float ApplyElevationAnomaly(
+     HexCoordinates coord,
+     float baseElevation,
+     float anomalyFreq,
+     float anomalyThreshold,
+     float anomalyStrength,
+     int seedOffset)
+    {
+        float noise = Mathf.PerlinNoise(
+            (coord.Q + seedOffset) * anomalyFreq,
+            (coord.R + seedOffset) * anomalyFreq
+        );
 
-    if (noise > 1f - anomalyThreshold)
-        return baseElevation + anomalyStrength;
+        if (noise > 1f - anomalyThreshold)
+            return baseElevation + anomalyStrength;
 
-    if (noise < anomalyThreshold)
-        return baseElevation - anomalyStrength;
+        if (noise < anomalyThreshold)
+            return baseElevation - anomalyStrength;
 
-    return baseElevation;
-}
+        return baseElevation;
+    }
 
+    public static float RidgePerlin(HexCoordinates coord, float frequency, int seedOffset)
+    {
+        float nx = (coord.Q + seedOffset) * frequency;
+        float ny = (coord.R + seedOffset) * frequency;
+        float p = Mathf.PerlinNoise(nx, ny);
+        return Mathf.Pow(1f - Mathf.Abs(2f * p - 1f), 2f); // Crea crestas, escarpado
+    }
 
+    // 🆕 (Opcional) Método para remapear valores de [0,1] a [-1,1] o cualquier rango
+    public static float Remap(float value, float fromMin, float fromMax, float toMin, float toMax)
+    {
+        return (value - fromMin) / (fromMax - fromMin) * (toMax - toMin) + toMin;
+    }
 }

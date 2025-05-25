@@ -3,33 +3,54 @@ using UnityEngine;
 
 public class WorldMapManager : MonoBehaviour
 {
-    // Asigna referencias activas a vecinos existentes
-    public void AssignNeighborReferences(HexData hex)
-    {
-        hex.neighborRefs.Clear();
-        foreach (var coord in hex.neighborCoords)
-        {
-            if (worldMap.TryGetValue(coord, out var neighbor))
-            {
-                hex.neighborRefs.Add(neighbor);
-            }
-        }
-    }
-
-    // Asigna referencias para todos los HexData de un chunk (opcional)
-    public void AssignNeighborsForChunk(List<HexData> chunkHexes)
-    {
-        foreach (var hex in chunkHexes)
-        {
-            AssignNeighborReferences(hex);
-        }
-    }
-
     public static WorldMapManager Instance;
 
     [Header("World Settings")]
-    public int seed = 42;
     public PerlinSettings perlinSettings;
+    [Header("Terrain Type Thresholds")]
+    [SerializeField] private float oceanThreshold = -50f;
+    [SerializeField] private float coastalWaterThreshold = -5f;
+
+    [SerializeField] private float sandyBeachMinElevation = -5f;
+    [SerializeField] private float sandyBeachMaxElevation = 1f;
+    [SerializeField] private float sandyBeachMinSlope = 0f;
+    [SerializeField] private float sandyBeachMaxSlope = 0.05f;
+
+    [SerializeField] private float rockyBeachMinElevation = -5f;
+    [SerializeField] private float rockyBeachMaxElevation = 1f;
+    [SerializeField] private float rockyBeachMinSlope = 0.05f;
+    [SerializeField] private float rockyBeachMaxSlope = 1f;
+
+    [SerializeField] private float plainsMinElevation = 1f;
+    [SerializeField] private float plainsMaxElevation = 15f;
+    [SerializeField] private float plainsMinSlope = 0f;
+    [SerializeField] private float plainsMaxSlope = 0.1f;
+
+    [SerializeField] private float hillsMinElevation = 15f;
+    [SerializeField] private float hillsMaxElevation = 80f;
+    [SerializeField] private float hillsMinSlope = 0.1f;
+    [SerializeField] private float hillsMaxSlope = 0.4f;
+
+    [SerializeField] private float plateauMinElevation = 80f;
+    [SerializeField] private float plateauMaxElevation = 120f;
+    [SerializeField] private float plateauMinSlope = 0f;
+    [SerializeField] private float plateauMaxSlope = 0.1f;
+
+    [SerializeField] private float mountainMinElevation = 120f;
+    [SerializeField] private float mountainMaxElevation = 200f; // Puedes ajustarlo si quieres un rango abierto
+    [SerializeField] private float mountainMinSlope = 0.3f;
+    [SerializeField] private float mountainMaxSlope = 1f;
+
+    [SerializeField] private float valleyMinElevation = -10f;
+    [SerializeField] private float valleyMaxElevation = 20f;
+    [SerializeField] private float valleyMinSlope = 0.05f;
+    [SerializeField] private float valleyMaxSlope = 0.4f;
+
+
+
+    [Header("Map Settings")]
+    public int mapWidth = 1000;
+    public int mapHeight = 1000;
 
     private Dictionary<HexCoordinates, HexData> worldMap = new();
 
@@ -46,57 +67,15 @@ public class WorldMapManager : MonoBehaviour
         HexData hex = new HexData();
         hex.coordinates = coord;
 
-        // Capas Perlin
-        float baseElevation = PerlinUtility.FractalPerlin(
-    coord,
-    perlinSettings.elevationFreq,
-    4,           // octaves
-    2f,          // lacunarity
-    0.5f,        // persistence
-    perlinSettings.elevationSeedOffset + seed
-);
+        hex.elevation = CalculateElevation(coord.Q, coord.R, mapWidth, mapHeight);
+        hex.slope = CalculateSlopeMagnitude(coord.Q, coord.R, 0.01f, mapWidth, mapHeight);
+        hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.seed);
+        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.seed);
 
-float finalElevation = PerlinUtility.ApplyElevationAnomaly(
-    coord,
-    baseElevation,
-    perlinSettings.anomalyFrequency,
-    perlinSettings.anomalyThreshold,
-    perlinSettings.anomalyStrength,
-    perlinSettings.anomalySeedOffset + seed
-);
-
-hex.elevation = finalElevation;
-
-
-
-        hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.moistureSeedOffset + seed);
-        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.tempSeedOffset + seed);
-
-        // Bioma inicial provisional
-        if (hex.elevation < 0.08f)
-            hex.terrainType = TerrainType.OceanDeep;
-        else if (hex.elevation < 0.16f)
-            hex.terrainType = TerrainType.OceanShallow;
-        else if (hex.elevation < 0.22f)
-            hex.terrainType = TerrainType.Beach;
-        else if (hex.elevation < 0.38f)
-            hex.terrainType = TerrainType.Plains;
-        else if (hex.elevation < 0.52f)
-            hex.terrainType = TerrainType.Valley;
-        else if (hex.elevation < 0.68f)
-            hex.terrainType = TerrainType.Forest;
-        else if (hex.elevation < 0.82f)
-            hex.terrainType = TerrainType.Hills;
-        else
-            hex.terrainType = TerrainType.Mountains;
-
-
-
-        // Asignación lógica de vecinos (coordenadas)
         foreach (HexCoordinates neighbor in coord.GetAllNeighbors())
-        {
             hex.neighborCoords.Add(neighbor);
-        }
+
+        hex.terrainType = DetermineTerrainType(hex);
 
         worldMap[coord] = hex;
         return hex;
@@ -119,51 +98,116 @@ hex.elevation = finalElevation;
         return chunkHexes;
     }
 
-    public bool TryGetHex(HexCoordinates coord, out HexData hex)
+    public bool TryGetHex(HexCoordinates coord, out HexData hex) =>
+        worldMap.TryGetValue(coord, out hex);
+
+    public IEnumerable<HexData> GetAllHexes() => worldMap.Values;
+
+    public void AssignNeighborReferences(HexData hex)
     {
-        return worldMap.TryGetValue(coord, out hex);
-    }
-
-    public IEnumerable<HexData> GetAllHexes()
-    {
-        return worldMap.Values;
-    }
-
-    private TerrainType DetermineTerrainType(HexData hex)
-    {
-        float elevation = hex.elevation;
-
-        if (elevation < 0.1f) return TerrainType.OceanDeep;
-        if (elevation < 0.25f) return TerrainType.OceanShallow;
-
-        // Cálculo de pendiente
-        float slopeSum = 0f;
-        int count = 0;
-
-        foreach (var neighborCoord in hex.neighborCoords)
+        hex.neighborRefs.Clear();
+        foreach (var coord in hex.neighborCoords)
         {
-            if (worldMap.TryGetValue(neighborCoord, out var neighbor))
-            {
-                slopeSum += Mathf.Abs(neighbor.elevation - elevation);
-                count++;
-            }
+            if (worldMap.TryGetValue(coord, out var neighbor))
+                hex.neighborRefs.Add(neighbor);
+        }
+    }
+
+    public void AssignNeighborsForChunk(List<HexData> chunkHexes)
+    {
+        foreach (var hex in chunkHexes)
+            AssignNeighborReferences(hex);
+    }
+
+   private TerrainType DetermineTerrainType(HexData hex)
+{
+    float elevation = hex.elevation;
+    float slope = hex.slope;
+
+    if (elevation < oceanThreshold) return TerrainType.Ocean;
+    if (elevation < coastalWaterThreshold) return TerrainType.CoastalWater;
+
+    if (elevation >= sandyBeachMinElevation && elevation < sandyBeachMaxElevation &&
+        slope >= sandyBeachMinSlope && slope < sandyBeachMaxSlope)
+        return TerrainType.SandyBeach;
+
+    if (elevation >= rockyBeachMinElevation && elevation < rockyBeachMaxElevation &&
+        slope >= rockyBeachMinSlope && slope < rockyBeachMaxSlope)
+        return TerrainType.RockyBeach;
+
+    if (elevation >= plainsMinElevation && elevation < plainsMaxElevation &&
+        slope >= plainsMinSlope && slope < plainsMaxSlope)
+        return TerrainType.Plains;
+
+    if (elevation >= hillsMinElevation && elevation < hillsMaxElevation &&
+        slope >= hillsMinSlope && slope < hillsMaxSlope)
+        return TerrainType.Hills;
+
+    if (elevation >= plateauMinElevation && elevation < plateauMaxElevation &&
+        slope >= plateauMinSlope && slope < plateauMaxSlope)
+        return TerrainType.Plateau;
+
+    if (elevation >= mountainMinElevation && elevation < mountainMaxElevation &&
+        slope >= mountainMinSlope && slope < mountainMaxSlope)
+        return TerrainType.Mountain;
+
+    if (elevation >= valleyMinElevation && elevation < valleyMaxElevation &&
+        slope >= valleyMinSlope && slope < valleyMaxSlope)
+        return TerrainType.Valley;
+
+    return TerrainType.Valley; // Catch-all por defecto
+}
+
+
+
+    public static bool IsWater(TerrainType type) =>
+        type == TerrainType.Ocean || type == TerrainType.CoastalWater;
+
+    public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
+    {
+        float scaleContinent = 0.0005f;
+        float scaleMountains = 0.005f;
+        float scaleDetail = 0.05f;
+
+        float valueA = PerlinUtility.FractalPerlin(new HexCoordinates(x, y), scaleContinent, 3, 1.5f, 0.4f, perlinSettings.seed);
+        float maskMountain = Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.8f, valueA));
+        float valueB = PerlinUtility.RidgePerlin(new HexCoordinates(x, y), scaleMountains, perlinSettings.seed) * maskMountain;
+        float valueC = PerlinUtility.Perlin(new HexCoordinates(x, y), scaleDetail, perlinSettings.seed);
+
+        float elevation = (valueA * 150f) + (valueB * 100f) + (valueC * 10f);
+
+        float oceanEdgePercentage = 0.05f;
+        float xNorm = (float)x / mapWidth;
+        if (xNorm < oceanEdgePercentage || xNorm > (1f - oceanEdgePercentage))
+        {
+            float blend = xNorm < oceanEdgePercentage ? 1f - (xNorm / oceanEdgePercentage) :
+                                                       (xNorm - (1f - oceanEdgePercentage)) / oceanEdgePercentage;
+            elevation = Mathf.Lerp(elevation, -150f, blend);
         }
 
-        float avgSlope = (count > 0) ? slopeSum / count : 0f;
+        float iceEdgePercentage = 0.1f;
+        float yNorm = (float)y / mapHeight;
+        if (yNorm < iceEdgePercentage || yNorm > (1f - iceEdgePercentage))
+        {
+            float blend = yNorm < iceEdgePercentage ? 1f - (yNorm / iceEdgePercentage) :
+                                                      (yNorm - (1f - iceEdgePercentage)) / iceEdgePercentage;
+            elevation = Mathf.Lerp(elevation, 5f, blend);
+        }
 
-        if (avgSlope < 0.02f) return TerrainType.Plains;
-        if (avgSlope < 0.06f) return TerrainType.Hills;
-        if (elevation > 0.8f) return TerrainType.Mountains;
-        if (avgSlope >= 0.06f && elevation < 0.5f) return TerrainType.Valley;
-
-        return TerrainType.Plains; // Fallback
+        return elevation;
     }
 
-    public static bool IsWater(TerrainType type)
+    public float CalculateSlopeMagnitude(int x, int y, float epsilon, int mapWidth, int mapHeight)
     {
-        return type == TerrainType.OceanDeep || type == TerrainType.OceanShallow;
+        float centerElevation = CalculateElevation(x, y, mapWidth, mapHeight);
+        float elevXPlus = CalculateElevation(x + 1, y, mapWidth, mapHeight);
+        float elevXMinus = CalculateElevation(x - 1, y, mapWidth, mapHeight);
+        float elevYPlus = CalculateElevation(x, y + 1, mapWidth, mapHeight);
+        float elevYMinus = CalculateElevation(x, y - 1, mapWidth, mapHeight);
+
+        float slopeX = (elevXPlus - elevXMinus) / 2f;
+        float slopeY = (elevYPlus - elevYMinus) / 2f;
+
+        return Mathf.Sqrt(slopeX * slopeX + slopeY * slopeY);
     }
-
-
-
 }
