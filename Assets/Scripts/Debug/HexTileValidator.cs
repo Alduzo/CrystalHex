@@ -6,7 +6,7 @@ public class HexTileValidator : MonoBehaviour
     [MenuItem("Tools/Validate HexTiles In Scene")]
     public static void ValidateHexTiles()
     {
-        var tiles = FindObjectsOfType<HexRenderer>();
+        var tiles = Object.FindObjectsByType<HexRenderer>(FindObjectsSortMode.None);
         Debug.Log($"🔍 Validando {tiles.Length} HexTiles...");
 
         foreach (var tile in tiles)

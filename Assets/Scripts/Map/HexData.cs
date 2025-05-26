@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 
 
-
-
 public enum TerrainType
 {
     Ocean,
@@ -15,6 +13,7 @@ public enum TerrainType
     Mountain,
     Plateau
 }
+
 public enum HexType { Natural, Rural, Urban }
 public enum ResourceType { Minerals, Wood, Food, Water, Energy }
 
@@ -24,10 +23,14 @@ public class HexData
 
     // Capa estática
     public float elevation;
+    public float slope;
     public float moisture;
     public float temperature;
     public TerrainType terrainType;
-    public float slope;
+    public bool neighborsAssigned = false;
+
+
+
 
     // Capa dinámica
     public HexType hexType = HexType.Natural;
@@ -40,7 +43,10 @@ public class HexData
     // En runtime, puede poblarse dinámicamente con referencias (si es necesario)
     public List<HexData> neighborRefs = new();
 
-       public float waterAmount = 0f;
-    public bool isRiver = false;
-    public bool isLake = false;
+        // Capa de agua (propiedades dinámicas)
+    public float waterAmount = 0f;    // Cantidad de agua acumulada
+    public bool isRiver = false;      // Indica si forma parte de un río
+    public bool isLake = false;       // Indica si forma parte de un lago
+
+    
 }

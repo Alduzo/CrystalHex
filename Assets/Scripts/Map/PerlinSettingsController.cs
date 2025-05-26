@@ -7,10 +7,10 @@ public class PerlinSettingsController : MonoBehaviour
     public PerlinSettings perlinSettings; // Asigna aquí el asset en el inspector
 
     [Header("Editable Settings")]
-    [Range(0.001f, 15f)] public float elevationFreq = 0.02f;
+    [Range(0.001f, 15f)] public float elevationFreq = 6.2f;
     [Range(0.001f, 1f)] public float moistureFreq = 0.03f;
     [Range(0.001f, 1f)] public float tempFreq = 0.015f;
-    public int seed = 1000;
+    public int seed = 100000;
 
     [Header("Perlin Fractal Settings")]
     [Range(1, 10)] public int octaves = 6;
@@ -22,27 +22,26 @@ public class PerlinSettingsController : MonoBehaviour
     [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
     public float anomalyFrequency = 0.1f;
 
-    void OnValidate()
+  void OnValidate()
+{
+    if (perlinSettings != null)
     {
-        if (perlinSettings != null)
-        {
-            perlinSettings.elevationFreq = elevationFreq;
-            perlinSettings.moistureFreq = moistureFreq;
-            perlinSettings.tempFreq = tempFreq;
-            perlinSettings.seed = seed;
-
-            // Aplicar parámetros avanzados de Perlin
-            perlinSettings.octaves = octaves;
-            perlinSettings.lacunarity = lacunarity;
-            perlinSettings.persistence = persistence;
-
-            perlinSettings.anomalyStrength = anomalyStrength;
-            perlinSettings.anomalyThreshold = anomalyThreshold;
-            perlinSettings.anomalyFrequency = anomalyFrequency;
+        perlinSettings.elevationFreq = elevationFreq;
+        perlinSettings.moistureFreq = moistureFreq;
+        perlinSettings.tempFreq = tempFreq;
+        perlinSettings.seed = seed;
+        perlinSettings.octaves = octaves;
+        perlinSettings.lacunarity = lacunarity;
+        perlinSettings.persistence = persistence;
+        perlinSettings.anomalyStrength = anomalyStrength;
+        perlinSettings.anomalyThreshold = anomalyThreshold;
+        perlinSettings.anomalyFrequency = anomalyFrequency;
 
 #if UNITY_EDITOR
-            UnityEditor.EditorUtility.SetDirty(perlinSettings);
+        UnityEditor.EditorUtility.SetDirty(perlinSettings);
+        UnityEditor.AssetDatabase.SaveAssets();
 #endif
-        }
     }
+}
+
 }

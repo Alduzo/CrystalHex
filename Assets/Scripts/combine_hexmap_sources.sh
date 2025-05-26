@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archivo de salida
-output_file="250524_TerrainTypes_config.md"
+output_file="250526_PerlinAplicatonDebug.md"
 
 # Limpia archivo si ya existe
 echo "# HexMap – Código fuente consolidado" > "$output_file"

@@ -279,10 +279,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   perlinSettings: {fileID: 11400000, guid: f89da9b2f740d4cf9a6a55ba95d36d9b, type: 2}
-  elevationFreq: 9.53
+  elevationFreq: 9.62
   moistureFreq: 0.03
   tempFreq: 0.015
-  seed: 2147483647
+  seed: 5000
   octaves: 8
   lacunarity: 3.49
   persistence: 0.709
@@ -1860,36 +1860,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   perlinSettings: {fileID: 11400000, guid: f89da9b2f740d4cf9a6a55ba95d36d9b, type: 2}
-  oceanThreshold: -50
-  coastalWaterThreshold: -5
-  sandyBeachMinElevation: -5
-  sandyBeachMaxElevation: 3
-  sandyBeachMinSlope: 0
-  sandyBeachMaxSlope: 0.8
-  rockyBeachMinElevation: -5
-  rockyBeachMaxElevation: 3
-  rockyBeachMinSlope: 0.05
-  rockyBeachMaxSlope: 1
-  plainsMinElevation: 6
-  plainsMaxElevation: 15
-  plainsMinSlope: 0.5
-  plainsMaxSlope: 0.1
-  hillsMinElevation: 15
-  hillsMaxElevation: 80
-  hillsMinSlope: 0.1
-  hillsMaxSlope: 0.4
-  plateauMinElevation: 80
-  plateauMaxElevation: 120
-  plateauMinSlope: 0
-  plateauMaxSlope: 0.1
-  mountainMinElevation: 120
-  mountainMaxElevation: 200
-  mountainMinSlope: 0.3
-  mountainMaxSlope: 1
-  valleyMinElevation: -10
-  valleyMaxElevation: 20
-  valleyMinSlope: 0.05
-  valleyMaxSlope: 0.4
   mapWidth: 1000
   mapHeight: 1000
 --- !u!4 &893854631

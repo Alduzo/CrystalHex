@@ -6,45 +6,7 @@ public class WorldMapManager : MonoBehaviour
     public static WorldMapManager Instance;
 
     [Header("World Settings")]
-    public PerlinSettings perlinSettings;
-    [Header("Terrain Type Thresholds")]
-    [SerializeField] private float oceanThreshold = -50f;
-    [SerializeField] private float coastalWaterThreshold = -5f;
-
-    [SerializeField] private float sandyBeachMinElevation = -5f;
-    [SerializeField] private float sandyBeachMaxElevation = 1f;
-    [SerializeField] private float sandyBeachMinSlope = 0f;
-    [SerializeField] private float sandyBeachMaxSlope = 0.05f;
-
-    [SerializeField] private float rockyBeachMinElevation = -5f;
-    [SerializeField] private float rockyBeachMaxElevation = 1f;
-    [SerializeField] private float rockyBeachMinSlope = 0.05f;
-    [SerializeField] private float rockyBeachMaxSlope = 1f;
-
-    [SerializeField] private float plainsMinElevation = 1f;
-    [SerializeField] private float plainsMaxElevation = 15f;
-    [SerializeField] private float plainsMinSlope = 0f;
-    [SerializeField] private float plainsMaxSlope = 0.1f;
-
-    [SerializeField] private float hillsMinElevation = 15f;
-    [SerializeField] private float hillsMaxElevation = 80f;
-    [SerializeField] private float hillsMinSlope = 0.1f;
-    [SerializeField] private float hillsMaxSlope = 0.4f;
-
-    [SerializeField] private float plateauMinElevation = 80f;
-    [SerializeField] private float plateauMaxElevation = 120f;
-    [SerializeField] private float plateauMinSlope = 0f;
-    [SerializeField] private float plateauMaxSlope = 0.1f;
-
-    [SerializeField] private float mountainMinElevation = 120f;
-    [SerializeField] private float mountainMaxElevation = 200f; // Puedes ajustarlo si quieres un rango abierto
-    [SerializeField] private float mountainMinSlope = 0.3f;
-    [SerializeField] private float mountainMaxSlope = 1f;
-
-    [SerializeField] private float valleyMinElevation = -10f;
-    [SerializeField] private float valleyMaxElevation = 20f;
-    [SerializeField] private float valleyMinSlope = 0.05f;
-    [SerializeField] private float valleyMaxSlope = 0.4f;
+    public PerlinSettings perlinSettings;  // Ahora solo cargado dinámicamente
 
 
 
@@ -57,7 +19,45 @@ public class WorldMapManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        Debug.Log("🔄 WorldMapManager Awake. Limpiando worldMap inicial.");
+        worldMap.Clear();
     }
+
+    public void InitializeWorld()
+    {
+        Resources.UnloadUnusedAssets();
+        perlinSettings = Resources.Load<PerlinSettings>("NewPerlinSettings");
+        if (perlinSettings == null)
+        {
+            Debug.LogError("❌ No se pudo cargar NewPerlinSettings desde Resources.");
+            return;
+        }
+
+        Debug.Log($"🔄 PerlinSettings recargado dinámicamente. Seed: {perlinSettings.seed}");
+        ResetWorld();
+        ChunkManager.Instance?.InitializeChunks(Vector2Int.zero);
+        Debug.Log("🌍 Mundo regenerado completamente.");
+    }
+
+    public void ResetWorld()
+    {
+        Debug.Log("🧹 Limpiando worldMap y chunks...");
+        worldMap.Clear();
+
+        foreach (Transform child in transform)
+            Destroy(child.gameObject);
+
+        if (ChunkManager.Instance != null)
+        {
+            foreach (var chunk in ChunkManager.Instance.loadedChunks.Values)
+                Destroy(chunk);
+            ChunkManager.Instance.loadedChunks.Clear();
+        }
+
+        Debug.Log("✅ ResetWorld completado.");
+    }
+
+    // ✅ MÉTODOS CLAVE COMPLETOS Y SIN CAMBIOS
 
     public HexData GetOrGenerateHex(HexCoordinates coord)
     {
@@ -76,92 +76,69 @@ public class WorldMapManager : MonoBehaviour
             hex.neighborCoords.Add(neighbor);
 
         hex.terrainType = DetermineTerrainType(hex);
-
         worldMap[coord] = hex;
         return hex;
-    }
-
-    public List<HexData> GetChunkHexes(Vector2Int chunkCoord, int chunkSize)
-    {
-        List<HexData> chunkHexes = new();
-
-        for (int dx = 0; dx < chunkSize; dx++)
-        {
-            for (int dy = 0; dy < chunkSize; dy++)
-            {
-                int q = chunkCoord.x * chunkSize + dx;
-                int r = chunkCoord.y * chunkSize + dy;
-                chunkHexes.Add(GetOrGenerateHex(new HexCoordinates(q, r)));
-            }
-        }
-
-        return chunkHexes;
     }
 
     public bool TryGetHex(HexCoordinates coord, out HexData hex) =>
         worldMap.TryGetValue(coord, out hex);
 
-    public IEnumerable<HexData> GetAllHexes() => worldMap.Values;
-
-    public void AssignNeighborReferences(HexData hex)
+    public void EnsureNeighborsAssigned(HexData hex)
     {
+        if (hex.neighborsAssigned)
+            return;
+
         hex.neighborRefs.Clear();
         foreach (var coord in hex.neighborCoords)
         {
             if (worldMap.TryGetValue(coord, out var neighbor))
                 hex.neighborRefs.Add(neighbor);
         }
+        hex.neighborsAssigned = true;
     }
 
     public void AssignNeighborsForChunk(List<HexData> chunkHexes)
     {
         foreach (var hex in chunkHexes)
-            AssignNeighborReferences(hex);
+            EnsureNeighborsAssigned(hex);
     }
 
-   private TerrainType DetermineTerrainType(HexData hex)
-{
-    float elevation = hex.elevation;
-    float slope = hex.slope;
+    public void RefreshNeighborsFor(HexData hex)
+    {
+        foreach (HexCoordinates coord in hex.neighborCoords)
+        {
+            if (worldMap.TryGetValue(coord, out var neighbor))
+            {
+                if (!hex.neighborRefs.Contains(neighbor))
+                    hex.neighborRefs.Add(neighbor);
+                if (!neighbor.neighborRefs.Contains(hex))
+                    neighbor.neighborRefs.Add(hex);
+            }
+        }
+        hex.neighborsAssigned = true;
+    }
 
-    if (elevation < oceanThreshold) return TerrainType.Ocean;
-    if (elevation < coastalWaterThreshold) return TerrainType.CoastalWater;
+    public HexBehavior GetHexBehavior(HexCoordinates coord)
+    {
+        if (TryGetHex(coord, out var hexData))
+        {
+            Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(coord);
+            if (ChunkManager.Instance.loadedChunks.TryGetValue(chunkCoord, out var chunk))
+            {
+                var behaviors = chunk.GetComponentsInChildren<HexBehavior>();
+                foreach (var behavior in behaviors)
+                {
+                    if (behavior.coordinates.Equals(coord))
+                        return behavior;
+                }
+            }
+        }
+        return null;
+    }
 
-    if (elevation >= sandyBeachMinElevation && elevation < sandyBeachMaxElevation &&
-        slope >= sandyBeachMinSlope && slope < sandyBeachMaxSlope)
-        return TerrainType.SandyBeach;
+    public IEnumerable<HexData> GetAllHexes() => worldMap.Values;
 
-    if (elevation >= rockyBeachMinElevation && elevation < rockyBeachMaxElevation &&
-        slope >= rockyBeachMinSlope && slope < rockyBeachMaxSlope)
-        return TerrainType.RockyBeach;
-
-    if (elevation >= plainsMinElevation && elevation < plainsMaxElevation &&
-        slope >= plainsMinSlope && slope < plainsMaxSlope)
-        return TerrainType.Plains;
-
-    if (elevation >= hillsMinElevation && elevation < hillsMaxElevation &&
-        slope >= hillsMinSlope && slope < hillsMaxSlope)
-        return TerrainType.Hills;
-
-    if (elevation >= plateauMinElevation && elevation < plateauMaxElevation &&
-        slope >= plateauMinSlope && slope < plateauMaxSlope)
-        return TerrainType.Plateau;
-
-    if (elevation >= mountainMinElevation && elevation < mountainMaxElevation &&
-        slope >= mountainMinSlope && slope < mountainMaxSlope)
-        return TerrainType.Mountain;
-
-    if (elevation >= valleyMinElevation && elevation < valleyMaxElevation &&
-        slope >= valleyMinSlope && slope < valleyMaxSlope)
-        return TerrainType.Valley;
-
-    return TerrainType.Valley; // Catch-all por defecto
-}
-
-
-
-    public static bool IsWater(TerrainType type) =>
-        type == TerrainType.Ocean || type == TerrainType.CoastalWater;
+    // Métodos originales: CalculateElevation, CalculateSlopeMagnitude, DetermineTerrainType, IsWater
 
     public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
     {
@@ -209,5 +186,34 @@ public class WorldMapManager : MonoBehaviour
         float slopeY = (elevYPlus - elevYMinus) / 2f;
 
         return Mathf.Sqrt(slopeX * slopeX + slopeY * slopeY);
+    }
+
+    public static bool IsWater(TerrainType type) =>
+        type == TerrainType.Ocean || type == TerrainType.CoastalWater;
+
+    private TerrainType DetermineTerrainType(HexData hex)
+    {
+        float elevation = hex.elevation;
+        float slope = hex.slope;
+
+        if (elevation < -50f) return TerrainType.Ocean;
+        if (elevation < -5f) return TerrainType.CoastalWater;
+
+        if (elevation >= -5f && elevation < 1f && slope >= 0f && slope < 0.05f)
+            return TerrainType.SandyBeach;
+        if (elevation >= -5f && elevation < 1f && slope >= 0.05f && slope < 1f)
+            return TerrainType.RockyBeach;
+        if (elevation >= 1f && elevation < 15f && slope >= 0f && slope < 0.1f)
+            return TerrainType.Plains;
+        if (elevation >= 15f && elevation < 80f && slope >= 0.1f && slope < 0.4f)
+            return TerrainType.Hills;
+        if (elevation >= 80f && elevation < 120f && slope >= 0f && slope < 0.1f)
+            return TerrainType.Plateau;
+        if (elevation >= 120f && elevation < 200f && slope >= 0.3f && slope < 1f)
+            return TerrainType.Mountain;
+        if (elevation >= -10f && elevation < 20f && slope >= 0.05f && slope < 0.4f)
+            return TerrainType.Valley;
+
+        return TerrainType.Valley;  // Por defecto
     }
 }

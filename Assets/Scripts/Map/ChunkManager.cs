@@ -18,7 +18,8 @@ public class ChunkManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        StartCoroutine(DelayedInit());
+        // 🔥 Opción de desactivar generación automática inicial:
+        // StartCoroutine(DelayedInit());
     }
 
     private IEnumerator DelayedInit()
@@ -34,11 +35,26 @@ public class ChunkManager : MonoBehaviour
         }
     }
 
+    public void InitializeChunks(Vector2Int initialCoord)
+    {
+        Debug.Log("🚀 Inicializando chunks con PerlinSettings actualizado...");
+        if (loadedChunks.Count > 0)
+        {
+            Debug.Log("♻️ Limpiando chunks cargados previamente...");
+            foreach (var oldChunk in loadedChunks.Values)
+                Destroy(oldChunk);
+            loadedChunks.Clear();
+        }
+
+        GameObject newChunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
+        loadedChunks[initialCoord] = newChunk;
+        Debug.Log($"🌱 Chunk inicial generado en {initialCoord}");
+    }
+
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
         HashSet<Vector2Int> chunksToKeep = new();
         List<Vector2Int> toUnload = new();
-        bool anyNewChunks = false;
 
         for (int dx = -loadRadius; dx <= loadRadius; dx++)
         {
@@ -51,15 +67,16 @@ public class ChunkManager : MonoBehaviour
                 {
                     GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
                     loadedChunks[coord] = chunk;
-                    anyNewChunks = true;
+                }
+                else
+                {
+                    loadedChunks[coord].SetActive(true);
                 }
             }
-            
         }
 
-        if (anyNewChunks)
+        if (chunksToKeep.Count > 0)
         {
-            ReassignAllChunkBehaviorNeighbors();
             List<HexRenderer> newHexes = new List<HexRenderer>();
 
             foreach (var coord in chunksToKeep)
@@ -72,18 +89,21 @@ public class ChunkManager : MonoBehaviour
                         Debug.Log($"🔍 Chunk en {coord} tiene {hexes.Length} hexes.");
                         newHexes.AddRange(hexes);
                     }
+
+                    var behaviors = chunk.GetComponentsInChildren<HexBehavior>();
+                    foreach (var behavior in behaviors)
+                    {
+                        behavior.SyncNeighbors();
+                    }
                 }
             }
 
             Debug.Log($"🔍 Se encontraron {newHexes.Count} nuevos HexRenderer.");
             HexBorderManager.Instance?.AddBordersForChunk(newHexes);
-
         }
-
 
         if (unloadRadius > 0)
         {
-            
             foreach (var coord in loadedChunks.Keys)
             {
                 int dist = Mathf.Max(
@@ -104,10 +124,8 @@ public class ChunkManager : MonoBehaviour
             {
                 HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
                 HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
-                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
-
-                Destroy(chunk);
-                loadedChunks.Remove(coord);
+                chunk.SetActive(false);
+                Debug.Log($"📦 Chunk en {coord} descargado visualmente (SetActive(false)).");
             }
         }
     }
@@ -117,6 +135,21 @@ public class ChunkManager : MonoBehaviour
         int chunkX = Mathf.FloorToInt((float)coordinates.Q / Instance.chunkSize);
         int chunkY = Mathf.FloorToInt((float)coordinates.R / Instance.chunkSize);
         return new Vector2Int(chunkX, chunkY);
+    }
+
+    public void RegenerateAllChunks()
+    {
+        Debug.Log("🔁 Regenerando todos los chunks...");
+        foreach (var chunk in loadedChunks.Values)
+        {
+            Destroy(chunk);
+        }
+        loadedChunks.Clear();
+
+        Vector2Int initialCoord = new Vector2Int(0, 0);
+        GameObject newChunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
+        loadedChunks[initialCoord] = newChunk;
+        Debug.Log("🌍 Chunk inicial regenerado manualmente.");
     }
 
     public void ReassignAllChunkBehaviorNeighbors()

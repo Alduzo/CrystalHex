@@ -113,11 +113,15 @@ public class HexBehavior : MonoBehaviour
         Debug.Log($"{name} tiene {neighbors.Count} vecinos.");
 
 
-        if (neighbors == null || neighbors.Count == 0)
-        {
-            Debug.LogWarning($"{name} has no neighbors!");
-            return;
-        }
+       if (neighbors == null || neighbors.Count == 0)
+{
+    SyncNeighbors(); // Backup dinámico
+    if (neighbors.Count == 0)
+    {
+        Debug.LogWarning($"{name} has no neighbors!");
+        return;
+    }
+}
 
         if (isProgressing)
         {
@@ -225,7 +229,14 @@ public class HexBehavior : MonoBehaviour
 
     public void EvaluateInfluence()
     {
-        WorldMapManager.Instance.AssignNeighborReferences(WorldMapManager.Instance.GetOrGenerateHex(coordinates));
+        // Eliminar llamada a AssignNeighborReferences
+        var hexData = WorldMapManager.Instance.GetOrGenerateHex(coordinates);
+        if (hexData.neighborRefs == null || hexData.neighborRefs.Count == 0)
+        {
+            Debug.LogWarning($"{name} has no neighbors! Skipping influence evaluation.");
+            return;
+        }
+
         influenceMap.Clear();
 
         foreach (var neighbor in neighbors)
@@ -238,6 +249,7 @@ public class HexBehavior : MonoBehaviour
                 influenceMap[type]++;
             }
         }
+
 
         if (influenceMap.Count == 0)
         {
@@ -276,5 +288,31 @@ public class HexBehavior : MonoBehaviour
         var tickManager = FindFirstObjectByType<TickManager>();
         tickManager?.Unregister(this);
     }
+
+public void SyncNeighbors()
+{
+    neighbors.Clear();
+
+    var hexData = WorldMapManager.Instance.GetOrGenerateHex(coordinates);
+    WorldMapManager.Instance.EnsureNeighborsAssigned(hexData);
+
+    foreach (var neighborData in hexData.neighborRefs)
+    {
+        Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(neighborData.coordinates);
+        if (ChunkManager.Instance.loadedChunks.TryGetValue(chunkCoord, out var neighborChunk))
+        {
+            var behaviors = neighborChunk.GetComponentsInChildren<HexBehavior>();
+            foreach (var neighborBehavior in behaviors)
+            {
+                if (neighborBehavior.coordinates.Equals(neighborData.coordinates))
+                {
+                    neighbors.Add(neighborBehavior);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 
 }
