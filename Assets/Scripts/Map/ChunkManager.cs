@@ -18,9 +18,25 @@ public class ChunkManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        // 🔥 Opción de desactivar generación automática inicial:
-        // StartCoroutine(DelayedInit());
+        StartCoroutine(DelayedInit());
     }
+
+public void InitializeChunks(int range)
+{
+    Debug.Log("🚀 Inicializando chunks alrededor del centro con PerlinSettings actualizado...");
+    loadedChunks.Clear();
+
+    for (int x = -range; x <= range; x++)
+    {
+        for (int y = -range; y <= range; y++)
+        {
+            Vector2Int coord = new Vector2Int(x, y);
+            GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
+            loadedChunks[coord] = chunk;
+        }
+    }
+    Debug.Log($"🌍 {loadedChunks.Count} chunks generados.");
+}
 
     private IEnumerator DelayedInit()
     {
@@ -35,26 +51,12 @@ public class ChunkManager : MonoBehaviour
         }
     }
 
-    public void InitializeChunks(Vector2Int initialCoord)
-    {
-        Debug.Log("🚀 Inicializando chunks con PerlinSettings actualizado...");
-        if (loadedChunks.Count > 0)
-        {
-            Debug.Log("♻️ Limpiando chunks cargados previamente...");
-            foreach (var oldChunk in loadedChunks.Values)
-                Destroy(oldChunk);
-            loadedChunks.Clear();
-        }
-
-        GameObject newChunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
-        loadedChunks[initialCoord] = newChunk;
-        Debug.Log($"🌱 Chunk inicial generado en {initialCoord}");
-    }
 
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
         HashSet<Vector2Int> chunksToKeep = new();
         List<Vector2Int> toUnload = new();
+        bool anyNewChunks = false;
 
         for (int dx = -loadRadius; dx <= loadRadius; dx++)
         {
@@ -67,16 +69,15 @@ public class ChunkManager : MonoBehaviour
                 {
                     GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
                     loadedChunks[coord] = chunk;
-                }
-                else
-                {
-                    loadedChunks[coord].SetActive(true);
+                    anyNewChunks = true;
                 }
             }
+
         }
 
-        if (chunksToKeep.Count > 0)
+        if (anyNewChunks)
         {
+            ReassignAllChunkBehaviorNeighbors();
             List<HexRenderer> newHexes = new List<HexRenderer>();
 
             foreach (var coord in chunksToKeep)
@@ -89,21 +90,18 @@ public class ChunkManager : MonoBehaviour
                         Debug.Log($"🔍 Chunk en {coord} tiene {hexes.Length} hexes.");
                         newHexes.AddRange(hexes);
                     }
-
-                    var behaviors = chunk.GetComponentsInChildren<HexBehavior>();
-                    foreach (var behavior in behaviors)
-                    {
-                        behavior.SyncNeighbors();
-                    }
                 }
             }
 
             Debug.Log($"🔍 Se encontraron {newHexes.Count} nuevos HexRenderer.");
             HexBorderManager.Instance?.AddBordersForChunk(newHexes);
+
         }
+
 
         if (unloadRadius > 0)
         {
+
             foreach (var coord in loadedChunks.Keys)
             {
                 int dist = Mathf.Max(
@@ -124,32 +122,20 @@ public class ChunkManager : MonoBehaviour
             {
                 HexRenderer[] hexes = chunk.GetComponentsInChildren<HexRenderer>();
                 HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
-                chunk.SetActive(false);
-                Debug.Log($"📦 Chunk en {coord} descargado visualmente (SetActive(false)).");
+                HexBorderManager.Instance?.RemoveBordersForChunk(hexes);
+
+                Destroy(chunk);
+                loadedChunks.Remove(coord);
             }
         }
     }
+
 
     public static Vector2Int WorldToChunkCoord(HexCoordinates coordinates)
     {
         int chunkX = Mathf.FloorToInt((float)coordinates.Q / Instance.chunkSize);
         int chunkY = Mathf.FloorToInt((float)coordinates.R / Instance.chunkSize);
         return new Vector2Int(chunkX, chunkY);
-    }
-
-    public void RegenerateAllChunks()
-    {
-        Debug.Log("🔁 Regenerando todos los chunks...");
-        foreach (var chunk in loadedChunks.Values)
-        {
-            Destroy(chunk);
-        }
-        loadedChunks.Clear();
-
-        Vector2Int initialCoord = new Vector2Int(0, 0);
-        GameObject newChunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
-        loadedChunks[initialCoord] = newChunk;
-        Debug.Log("🌍 Chunk inicial regenerado manualmente.");
     }
 
     public void ReassignAllChunkBehaviorNeighbors()

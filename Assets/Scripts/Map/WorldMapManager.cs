@@ -1,12 +1,19 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WorldMapManager : MonoBehaviour
-{
-    public static WorldMapManager Instance;
 
-    [Header("World Settings")]
-    public PerlinSettings perlinSettings;  // Ahora solo cargado dinámicamente
+
+public class WorldMapManager : MonoBehaviour
+
+
+
+{
+    public static WorldMapManager Instance { get; private set; }
+    public static FastNoiseLite Noise { get; private set; } 
+
+    public PerlinSettings perlinSettings; 
+   
+
 
 
 
@@ -16,17 +23,53 @@ public class WorldMapManager : MonoBehaviour
 
     private Dictionary<HexCoordinates, HexData> worldMap = new();
 
-    private void Awake()
+    private ChunkManager chunkManager;
+
+    
+
+private void Start()
+{
+    if (perlinSettings == null)
     {
-        Instance = this;
-        Debug.Log("🔄 WorldMapManager Awake. Limpiando worldMap inicial.");
-        worldMap.Clear();
+        Debug.LogError("WorldManager: PerlinSettings no ha sido asignado.");
     }
+    else
+    {
+        Debug.Log($"WorldManager: PerlinSettings cargado. ElevationFreq: {perlinSettings.baseFreq}, Seed: {perlinSettings.seed}, Octaves: {perlinSettings.octaves}");
+        InitializeWorld();  // 🚀 Regenera automáticamente al iniciar Play
+    }
+}
+
+    private void Awake()
+{
+    Instance = this;
+
+    if (perlinSettings == null)
+    {
+        Debug.LogError("WorldManager: PerlinSettings no ha sido asignado en el Inspector.");
+    }
+    else
+    {
+        Debug.Log($"WorldManager: PerlinSettings cargado. BaseFreq: {perlinSettings.baseFreq}, Seed: {perlinSettings.seed}, Octaves: {perlinSettings.octaves}");
+    }
+
+    // Inicializa FastNoiseLite con el seed y parámetros de PerlinSettings
+    Noise = new FastNoiseLite();
+    Noise.SetSeed(perlinSettings.seed);
+    Noise.SetFrequency(perlinSettings.baseFreq);
+    Noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+    Noise.SetFractalOctaves(perlinSettings.octaves);
+    Noise.SetFractalLacunarity(perlinSettings.lacunarity);
+    Noise.SetFractalGain(perlinSettings.persistence);
+
+    Debug.Log("🌍 FastNoiseLite inicializado con semilla y parámetros.");
+}
+
 
     public void InitializeWorld()
     {
         Resources.UnloadUnusedAssets();
-        perlinSettings = Resources.Load<PerlinSettings>("NewPerlinSettings");
+        // perlinSettings = Resources.Load<PerlinSettings>("NewPerlinSettings");
         if (perlinSettings == null)
         {
             Debug.LogError("❌ No se pudo cargar NewPerlinSettings desde Resources.");
@@ -35,8 +78,14 @@ public class WorldMapManager : MonoBehaviour
 
         Debug.Log($"🔄 PerlinSettings recargado dinámicamente. Seed: {perlinSettings.seed}");
         ResetWorld();
-        ChunkManager.Instance?.InitializeChunks(Vector2Int.zero);
+
         Debug.Log("🌍 Mundo regenerado completamente.");
+        if (ChunkManager.Instance != null)
+{
+    ChunkManager.Instance.InitializeChunks(2);  // Cambia el rango según quieras
+    Debug.Log("🌍 Mundo inicial regenerado con chunks.");
+}
+
     }
 
     public void ResetWorld()
@@ -69,6 +118,7 @@ public class WorldMapManager : MonoBehaviour
 
         hex.elevation = CalculateElevation(coord.Q, coord.R, mapWidth, mapHeight);
         hex.slope = CalculateSlopeMagnitude(coord.Q, coord.R, 0.01f, mapWidth, mapHeight);
+        
         hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.seed);
         hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.seed);
 
@@ -140,39 +190,36 @@ public class WorldMapManager : MonoBehaviour
 
     // Métodos originales: CalculateElevation, CalculateSlopeMagnitude, DetermineTerrainType, IsWater
 
-    public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
+   public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
+{
+    // Remapear baseNoise a [0,1] para suavizar variaciones
+    float rawNoise = Noise.GetNoise(x, y);  // [-1,1]
+    float remappedNoise = (rawNoise + 1f) * 0.5f;  // [0,1]
+
+    // Elevación base controlada y elevada por baseOffset
+    float baseElevation = (remappedNoise * perlinSettings.baseAmplitude) + perlinSettings.baseOffset;
+
+    // RidgeNoise separado para montañas con amplitud reducida
+    float ridgeNoise = (Noise.GetNoise(x + 10, y + 10) + 1f) * 0.5f;  // [0,1]
+    float ridge = ridgeNoise * perlinSettings.ridgeAmplitude * 0.2f;  // Reduzco el impacto
+    if (baseElevation > perlinSettings.mountainThreshold)
     {
-        float scaleContinent = 0.0005f;
-        float scaleMountains = 0.005f;
-        float scaleDetail = 0.05f;
-
-        float valueA = PerlinUtility.FractalPerlin(new HexCoordinates(x, y), scaleContinent, 3, 1.5f, 0.4f, perlinSettings.seed);
-        float maskMountain = Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.8f, valueA));
-        float valueB = PerlinUtility.RidgePerlin(new HexCoordinates(x, y), scaleMountains, perlinSettings.seed) * maskMountain;
-        float valueC = PerlinUtility.Perlin(new HexCoordinates(x, y), scaleDetail, perlinSettings.seed);
-
-        float elevation = (valueA * 150f) + (valueB * 100f) + (valueC * 10f);
-
-        float oceanEdgePercentage = 0.05f;
-        float xNorm = (float)x / mapWidth;
-        if (xNorm < oceanEdgePercentage || xNorm > (1f - oceanEdgePercentage))
-        {
-            float blend = xNorm < oceanEdgePercentage ? 1f - (xNorm / oceanEdgePercentage) :
-                                                       (xNorm - (1f - oceanEdgePercentage)) / oceanEdgePercentage;
-            elevation = Mathf.Lerp(elevation, -150f, blend);
-        }
-
-        float iceEdgePercentage = 0.1f;
-        float yNorm = (float)y / mapHeight;
-        if (yNorm < iceEdgePercentage || yNorm > (1f - iceEdgePercentage))
-        {
-            float blend = yNorm < iceEdgePercentage ? 1f - (yNorm / iceEdgePercentage) :
-                                                      (yNorm - (1f - iceEdgePercentage)) / iceEdgePercentage;
-            elevation = Mathf.Lerp(elevation, 5f, blend);
-        }
-
-        return elevation;
+        float ridgeContribution = baseElevation - perlinSettings.mountainThreshold;
+        baseElevation += ridge * ridgeContribution * 0.3f;  // Suaviza
     }
+
+    // RiverNoise suavizado para no restar tanto
+    float riverNoise = (Noise.GetNoise(x + 20, y + 20) + 1f) * 0.5f;  // [0,1]
+    float river = 1f - riverNoise;
+    baseElevation -= river * perlinSettings.riverDepth * 0.1f;  // Reduce impacto río
+
+    // Opcional: Limitar altura máxima
+    baseElevation = Mathf.Clamp(baseElevation, 0f, 50f);  // Ajusta según amplitud realista
+
+    return baseElevation;
+}
+
+
 
     public float CalculateSlopeMagnitude(int x, int y, float epsilon, int mapWidth, int mapHeight)
     {
@@ -196,12 +243,12 @@ public class WorldMapManager : MonoBehaviour
         float elevation = hex.elevation;
         float slope = hex.slope;
 
-        if (elevation < -50f) return TerrainType.Ocean;
-        if (elevation < -5f) return TerrainType.CoastalWater;
+        if (elevation < -2f) return TerrainType.Ocean;
+        if (elevation < -1f) return TerrainType.CoastalWater;
 
-        if (elevation >= -5f && elevation < 1f && slope >= 0f && slope < 0.05f)
+        if (elevation >= -5f && elevation < 1f && slope >= 0f && slope < 0.15f)
             return TerrainType.SandyBeach;
-        if (elevation >= -5f && elevation < 1f && slope >= 0.05f && slope < 1f)
+        if (elevation >= -5f && elevation < 1f && slope >= 0.15f && slope < 1f)
             return TerrainType.RockyBeach;
         if (elevation >= 1f && elevation < 15f && slope >= 0f && slope < 0.1f)
             return TerrainType.Plains;

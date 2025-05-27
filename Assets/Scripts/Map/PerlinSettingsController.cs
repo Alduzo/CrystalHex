@@ -1,4 +1,4 @@
-using UnityEngine;
+/*using UnityEngine;
 
 // Control visual para editar PerlinSettings desde el inspector.
 public class PerlinSettingsController : MonoBehaviour
@@ -7,7 +7,7 @@ public class PerlinSettingsController : MonoBehaviour
     public PerlinSettings perlinSettings; // Asigna aquí el asset en el inspector
 
     [Header("Editable Settings")]
-    [Range(0.001f, 15f)] public float elevationFreq = 6.2f;
+    [Range(0.0001f, 125f)] public float elevationFreq = 125f;
     [Range(0.001f, 1f)] public float moistureFreq = 0.03f;
     [Range(0.001f, 1f)] public float tempFreq = 0.015f;
     public int seed = 100000;
@@ -41,7 +41,17 @@ public class PerlinSettingsController : MonoBehaviour
         UnityEditor.EditorUtility.SetDirty(perlinSettings);
         UnityEditor.AssetDatabase.SaveAssets();
 #endif
+
+        // 🚀 Llama a regenerar incluso fuera de Play
+        if (WorldMapManager.Instance != null)
+        {
+            WorldMapManager.Instance.InitializeWorld();
+            Debug.Log("🌍 Mundo regenerado automáticamente tras cambiar PerlinSettings.");
+        }
     }
 }
 
+
+
 }
+*/

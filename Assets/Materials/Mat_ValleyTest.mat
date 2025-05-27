@@ -35,7 +35,7 @@ Material:
     RenderType: Opaque
   disabledShaderPasses:
   - MOTIONVECTORS
-  m_LockedProperties: 
+  m_LockedProperties: _ReceiveShadows
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -142,8 +142,8 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.54943186, g: 0.9433962, b: 0.40494838, a: 1}
-    - _Color: {r: 0.5494318, g: 0.9433962, b: 0.40494835, a: 1}
+    - _BaseColor: {r: 0.14663903, g: 0.4339623, b: 0.038892835, a: 1}
+    - _Color: {r: 0.14663899, g: 0.43396226, b: 0.038892835, a: 1}
     - _EmissionColor: {r: 0.039546236, g: 0.039546236, b: 0.039546236, a: 1}
     - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}

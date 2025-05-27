@@ -6,8 +6,8 @@ public static class PerlinUtility
 {
     public static float Perlin(HexCoordinates coord, float frequency, int seedOffset)
     {
-        float nx = (coord.Q * 73856093 + seedOffset) * frequency;
-        float ny = (coord.R * 19349663 + seedOffset) * frequency;
+        float nx = (coord.Q * 73856093 + seedOffset * 19349663) * frequency;
+        float ny = (coord.R * 83492791 + seedOffset * 83492791) * frequency;
         return Mathf.PerlinNoise(nx, ny);
     }
 
@@ -20,8 +20,8 @@ public static class PerlinUtility
 
         for (int i = 0; i < octaves; i++)
         {
-            float nx = (coord.Q * 73856093 + seedOffset) * frequency;
-            float ny = (coord.R * 19349663 + seedOffset) * frequency;
+            float nx = (coord.Q  + seedOffset ) * frequency;
+            float ny = (coord.R  + seedOffset ) * frequency;
             total += Mathf.PerlinNoise(nx, ny) * amplitude;
 
             maxValue += amplitude;
@@ -41,8 +41,8 @@ public static class PerlinUtility
      int seedOffset)
     {
         float noise = Mathf.PerlinNoise(
-            (coord.Q  * 73856093 + seedOffset) * anomalyFreq,
-            (coord.R * 19349663 + seedOffset) * anomalyFreq
+            (coord.Q   + seedOffset) * anomalyFreq,
+            (coord.R  + seedOffset) * anomalyFreq
         );
 
         if (noise > 1f - anomalyThreshold)
@@ -56,8 +56,8 @@ public static class PerlinUtility
 
     public static float RidgePerlin(HexCoordinates coord, float frequency, int seedOffset)
     {
-        float nx = (coord.Q  * 73856093 + seedOffset) * frequency;
-        float ny = (coord.R  * 19349663 + seedOffset) * frequency;
+        float nx = (coord.Q + seedOffset) * frequency;
+        float ny = (coord.R + seedOffset) * frequency;
         float p = Mathf.PerlinNoise(nx, ny);
         return Mathf.Pow(1f - Mathf.Abs(2f * p - 1f), 2f); // Crea crestas, escarpado
     }
