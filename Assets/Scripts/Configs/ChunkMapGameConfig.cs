@@ -30,4 +30,41 @@ public class ChunkMapGameConfig : ScriptableObject
 
         return _materialMap.TryGetValue(type, out var mat) ? mat : null;
     }
+    public Color GetColorFor(TerrainType terrain)
+{
+    var material = GetMaterialFor(terrain);
+    if (material != null)
+    {
+        return material.color;
+    }
+    else
+    {
+        Debug.LogWarning($"⚠️ Material no encontrado para {terrain}. Usando color por defecto.");
+        switch (terrain)
+        {
+            case TerrainType.Ocean:
+                return Color.blue;
+            case TerrainType.CoastalWater:
+                return Color.cyan;
+            case TerrainType.SandyBeach:
+                return Color.yellow;
+            case TerrainType.RockyBeach:
+                return Color.gray;
+            case TerrainType.Plains:
+                return Color.green;
+            case TerrainType.Hills:
+                return new Color(0.5f, 0.8f, 0.3f);
+            case TerrainType.Plateau:
+                return Color.Lerp(Color.green, Color.gray, 0.5f);
+            case TerrainType.Mountain:
+                return Color.gray;
+            case TerrainType.Valley:
+                return Color.Lerp(Color.green, Color.yellow, 0.5f);
+            default:
+                return Color.white;
+        }
+    }
+}
+
+
 }

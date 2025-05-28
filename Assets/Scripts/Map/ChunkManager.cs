@@ -13,6 +13,7 @@ public class ChunkManager : MonoBehaviour
     [Range(0, 10)]
     public int unloadRadius = 2;
 
+
     public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
     private void Awake()
@@ -21,22 +22,22 @@ public class ChunkManager : MonoBehaviour
         StartCoroutine(DelayedInit());
     }
 
-public void InitializeChunks(int range)
-{
-    Debug.Log("🚀 Inicializando chunks alrededor del centro con PerlinSettings actualizado...");
-    loadedChunks.Clear();
-
-    for (int x = -range; x <= range; x++)
+    public void InitializeChunks(int range)
     {
-        for (int y = -range; y <= range; y++)
+        Debug.Log("🚀 Inicializando chunks alrededor del centro con PerlinSettings actualizado...");
+        loadedChunks.Clear();
+
+        for (int x = -range; x <= range; x++)
         {
-            Vector2Int coord = new Vector2Int(x, y);
-            GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
-            loadedChunks[coord] = chunk;
+            for (int y = -range; y <= range; y++)
+            {
+                Vector2Int coord = new Vector2Int(x, y);
+                GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
+                loadedChunks[coord] = chunk;
+            }
         }
+        Debug.Log($"🌍 {loadedChunks.Count} chunks generados.");
     }
-    Debug.Log($"🌍 {loadedChunks.Count} chunks generados.");
-}
 
     private IEnumerator DelayedInit()
     {
@@ -149,4 +150,51 @@ public void InitializeChunks(int range)
             }
         }
     }
+    public void LoadChunksAtDetail(int detailLevel)
+{
+/*    foreach (var chunk in loadedChunks.Values)
+    {
+        Destroy(chunk);
+    }
+    loadedChunks.Clear();
+
+    int size = chunkSize;
+    GameObject prefab = hexPrefab;
+
+    if (detailLevel == 0)
+    {
+        // Detalle máximo, chunks completos
+        size = chunkSize;
+        prefab = hexPrefab;
+    }
+    else if (detailLevel == 1)
+    {
+        size = chunkSize * 2;
+        prefab = Resources.Load<GameObject>("LowPolyHexPrefab");  // Asegúrate que existe
+    }
+    else if (detailLevel == 2)
+    {
+        // Minimapa nivel 2: chunks low-poly con elevación y color por tile
+        size = chunkSize;
+        prefab = Resources.Load<GameObject>("LowPolyHexPrefab");
+    }
+    else
+    {
+        // Nivel 3 (proyección global) no carga chunks
+        return;
+    }
+
+    for (int x = -2; x <= 2; x++)
+    {
+        for (int y = -2; y <= 2; y++)
+        {
+            Vector2Int coord = new Vector2Int(x, y);
+            GameObject chunk = ChunkGenerator.GenerateChunk(coord, size, prefab);
+            loadedChunks[coord] = chunk;
+        }
+    }
+
+    Debug.Log($"🌍 Chunks generados para LOD {detailLevel}");
+*/}
+
 }
