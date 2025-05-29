@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archivo de salida
-output_file="2505262352_PerlinAplicatonDebug.md"
+output_file="250529_PerlinAdjustments_and_water.md"
 
 # Limpia archivo si ya existe
 echo "# HexMap – Código fuente consolidado" > "$output_file"

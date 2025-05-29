@@ -87,6 +87,8 @@ public class HexRenderer : MonoBehaviour
         BuildMesh();
     }
 
+    
+
     void BuildMesh()
     {
         if (_mf != null) _mf.sharedMesh = null;
@@ -173,6 +175,34 @@ public class HexRenderer : MonoBehaviour
 
     }
     
+public void SetVisualByHex(HexData hexData)
+{
+    if (hexData.isRiver)
+    {
+        // Asignar color azul para agua
+        topColor = Color.blue;
+        sideColor = new Color(0, 0, 0.5f);  // Lado más oscuro para agua
+    }
+    else
+    {
+        // Asignar color según terrainType o por defecto
+        switch (hexData.terrainType)
+        {
+            case TerrainType.Plains:
+                topColor = Color.green; sideColor = Color.black;
+                break;
+            case TerrainType.Mountain:
+                topColor = Color.gray; sideColor = Color.black;
+                break;
+            // Agrega más casos según necesidad
+            default:
+                topColor = Color.magenta; sideColor = Color.black;
+                break;
+        }
+    }
+
+    BuildMesh();  // Actualiza el mesh con nuevos colores
+}
 
 
     

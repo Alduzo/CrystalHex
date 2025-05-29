@@ -20,7 +20,7 @@ MonoBehaviour:
   - terrainType: 2
     material: {fileID: 2100000, guid: 7bf9f12443d9c42a2a76183558b3f40a, type: 2}
   - terrainType: 3
-    material: {fileID: 2100000, guid: 02cf741c769064bcda43d80ff4a119e8, type: 2}
+    material: {fileID: 2100000, guid: a9cb271aa9b85492f8d62a278e659770, type: 2}
   - terrainType: 4
     material: {fileID: 2100000, guid: d2bd5c6671fe4417aba4438a2f7fc7b0, type: 2}
   - terrainType: 5
@@ -28,7 +28,11 @@ MonoBehaviour:
   - terrainType: 6
     material: {fileID: 2100000, guid: 02cf741c769064bcda43d80ff4a119e8, type: 2}
   - terrainType: 7
-    material: {fileID: 2100000, guid: e14bf7e929b824357a1bb55657b87799, type: 2}
+    material: {fileID: 2100000, guid: 00bfb0aea9b064027ad455aeeb66051c, type: 2}
   - terrainType: 8
-    material: {fileID: 2100000, guid: d2bd5c6671fe4417aba4438a2f7fc7b0, type: 2}
+    material: {fileID: 2100000, guid: e14bf7e929b824357a1bb55657b87799, type: 2}
+  - terrainType: 9
+    material: {fileID: 2100000, guid: 35b0a296aa0464b7881e3515a9b46ea2, type: 2}
+  - terrainType: 5
+    material: {fileID: 2100000, guid: 5e2cb37ece2924719a7af653415cc366, type: 2}
   elevationScale: 1

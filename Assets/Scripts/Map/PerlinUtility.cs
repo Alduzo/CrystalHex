@@ -4,12 +4,16 @@ using UnityEngine;
 
 public static class PerlinUtility
 {
-    public static float Perlin(HexCoordinates coord, float frequency, int seedOffset)
-    {
-        float nx = (coord.Q * 73856093 + seedOffset * 19349663) * frequency;
-        float ny = (coord.R * 83492791 + seedOffset * 83492791) * frequency;
-        return Mathf.PerlinNoise(nx, ny);
-    }
+   public static float Perlin(HexCoordinates coord, float frequency, int seedOffset, int mapWidth, int mapHeight)
+{
+    float scale = 300f / Mathf.Min(mapWidth, mapHeight);  // 300 es el denominador base
+    float scaledFreq = frequency * scale;
+
+    float nx = (coord.Q * 73856093 + seedOffset * 19349663) * scaledFreq;
+    float ny = (coord.R * 83492791 + seedOffset * 83492791) * scaledFreq;
+    return Mathf.PerlinNoise(nx, ny);
+}
+
 
     public static float FractalPerlin(HexCoordinates coord, float baseFreq, int octaves, float lacunarity, float persistence, int seedOffset)
     {

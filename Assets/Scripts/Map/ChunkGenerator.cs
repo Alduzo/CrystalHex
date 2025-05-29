@@ -37,22 +37,25 @@ public class ChunkGenerator
                     var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
                     var renderer = hex.GetComponent<HexRenderer>();
 
-                    if (renderer != null)
-                    {
-                        var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
-                        if (config != null)
+                        if (renderer != null)
                         {
-                            float elevationHeight = hexData.elevation * config.elevationScale;
-                            renderer.SetHeight(elevationHeight);
+                            var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+                            if (config != null)
+                            {
+                                float elevationHeight = hexData.elevation * config.elevationScale;
+                                renderer.SetHeight(elevationHeight);
 
-                            Material mat = config.GetMaterialFor(hexData.terrainType);
-                            if (mat != null)
-                                renderer.GetComponent<MeshRenderer>().material = mat;
-                        }
-                        else
-                        {
-                            Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
-                        }
+                                Material mat = config.GetMaterialFor(hexData.terrainType);
+                                if (mat != null)
+                                    renderer.GetComponent<MeshRenderer>().material = mat;
+
+                            }
+
+                            else
+                            {
+                              //  Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
+                            }
+                            renderer.SetVisualByHex(hexData);
                     }
 
                     // Asignar vecinos con la nueva lógica proactiva

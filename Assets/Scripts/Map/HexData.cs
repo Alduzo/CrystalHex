@@ -8,10 +8,12 @@ public enum TerrainType
     SandyBeach,
     RockyBeach,
     Plains,
+    LowHills,
     Hills,
     Valley,
     Mountain,
-    Plateau
+    Plateau,
+    Peak
 }
 
 public enum HexType { Natural, Rural, Urban }

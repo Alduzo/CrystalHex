@@ -7,6 +7,13 @@ public class PerlinSettings : MonoBehaviour
 
 
     [Header("Base Elevation (Continente)")]
+
+
+[Range(0.001f, 0.1f)]
+public float continentFreq = 0.0015f;
+    [Range(0f, 1f)]
+    
+    public float continentalFlattenFactor = 0.5f;  // Valor inicial 0.5
     public float baseFreq = 0.005f;            // Frecuencia base para el continente
     public float baseOffset = 50f; 
 
@@ -29,6 +36,12 @@ public class PerlinSettings : MonoBehaviour
     public int seed = 200500;                  // Semilla para variabilidad
     public float moistureFreq = 0.03f;         // Opcional, para humedad
     public float tempFreq = 0.015f;            // Opcional, para temperatura
+
+[Range(0.001f, 1f)]
+public float waterFreq = 0.02f;
+[Range(0.1f, 10f)]
+public float waterAmplitude = 1f;  // Opcional, para controlar la "altura" o "cantidad"
+
 
     [Header("Anomaly Settings (Opcional)")]
     [Range(0f, 1f)] public float anomalyThreshold = 0.15f;

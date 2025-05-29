@@ -151,9 +151,9 @@ MonoBehaviour:
   mainCamera: {fileID: 519420031}
   minimapCamera: {fileID: 1677083135}
   globeCamera: {fileID: 0}
-  closeThreshold: 10
-  mediumThreshold: 30
-  globeThreshold: 50
+  closeThreshold: 20
+  mediumThreshold: 50
+  globeThreshold: 100
   chunkManager: {fileID: 350062402}
   worldMapManager: {fileID: 489991622}
   minimapImage: {fileID: 1792519013}
@@ -646,7 +646,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hexPrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
-  chunkSize: 6
+  chunkSize: 8
   loadRadius: 2
   unloadRadius: 1
 --- !u!4 &350062403
@@ -2164,20 +2164,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce752a9ee35644a70ae0f9028e419afd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseFreq: 0.024
-  baseOffset: 10
-  baseAmplitude: 8
-  octaves: 4
-  lacunarity: 2.2
+  continentFreq: 0.028
+  continentalFlattenFactor: 0.15
+  baseFreq: 0.09
+  baseOffset: -10
+  baseAmplitude: 70
+  octaves: 6
+  lacunarity: 1.8
   persistence: 0.45
-  ridgeFreq: 0.015
-  ridgeAmplitude: 5
-  mountainThreshold: 0.4
-  riverFreq: 0.025
-  riverDepth: 12
+  ridgeFreq: 8
+  ridgeAmplitude: 60
+  mountainThreshold: 0.002
+  riverFreq: 0.15
+  riverDepth: 20
   seed: 1
   moistureFreq: 0.03
   tempFreq: 0.015
+  waterFreq: 0.02
+  waterAmplitude: 1
   anomalyThreshold: 0.059
   anomalyStrength: 0.035
   anomalyFrequency: 0.001
@@ -2646,7 +2650,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
-  elevationScale: 2.4
+  elevationScale: 0.5
 --- !u!4 &1198349187
 Transform:
   m_ObjectHideFlags: 0
@@ -3864,7 +3868,7 @@ MonoBehaviour:
   yZoomSpeed: 10
   yMinHeight: 3
   yMaxHeight: 120
-  initialOffsetFromPlayer: {x: 0.81, y: 5, z: -8.57}
+  initialOffsetFromPlayer: {x: 0.81, y: 12, z: -8.57}
   lookAtHeightOffset: 8
 --- !u!4 &1811610445
 Transform:

@@ -24,69 +24,60 @@ public class WaterManager : MonoBehaviour
             Destroy(gameObject);
     }
 
-    public void SimulateWaterFlow(Dictionary<HexCoordinates, HexData> worldMap)
+   public void SimulateWaterFlow()
+{
+    foreach (var kvp in WorldMapManager.Instance.GetAllHexes())
     {
-        if (worldMap == null)
+        HexData hex = kvp;
+
+        // 🌊 Flujo inicial basado en humedad y pendiente
+        float moistureFactor = hex.moisture;
+        float slopeFactor = Mathf.Clamp01(hex.slope * 10f);  // Normaliza pendiente (0-1)
+
+        // 🌊 Capacidad de absorción según tipo de terreno
+        float absorption = 1f;
+        switch (hex.terrainType)
         {
-            Debug.LogWarning("🌊 WaterManager: worldMap es nulo. Simulación cancelada.");
-            return;
+            case TerrainType.Plains:
+            case TerrainType.Valley:
+            case TerrainType.Plateau:
+                absorption = 0.7f;  // Más capacidad de absorción
+                break;
+            case TerrainType.Hills:
+                absorption = 0.4f;  // Menos absorción
+                break;
+            case TerrainType.Mountain:
+                absorption = 0.2f;  // Muy baja absorción
+                break;
         }
 
-        Debug.Log("🌊 Iniciando simulación de flujo de agua...");
+        // 💧 Calcular flujo inicial (retención y pendiente)
+        float baseWater = moistureFactor * initialRainAmount * absorption;
+        float flowBoost = slopeFactor * initialRainAmount * (1f - absorption);  // Complementa absorción
 
-        // Inicializa agua
-        foreach (var hex in worldMap.Values)
+        hex.waterAmount = baseWater + flowBoost;
+
+        // 🏞 Visualización opcional: marcar ríos o lagos si excede umbral
+        if (hex.waterAmount > 1.5f)  // Umbral ajustable
         {
-            float rainfall = PerlinUtility.Perlin(hex.coordinates, WorldMapManager.Instance.perlinSettings.moistureFreq, WorldMapManager.Instance.perlinSettings.seed);
-            hex.waterAmount = rainfall * initialRainAmount;
+            hex.isRiver = true;
+            hex.isLake = false;
         }
-
-        // Simulación dinámica
-        for (int tick = 0; tick < simulationTicks; tick++)
+        else if (hex.waterAmount > 0.8f)  // Menor acumulación
         {
-            Dictionary<HexData, float> waterTransfer = new();
-
-            foreach (var hex in worldMap.Values)
-            {
-                if (hex.waterAmount <= 0f) continue;
-
-                HexData lowestNeighbor = null;
-                float lowestElevation = hex.elevation;
-
-                foreach (var neighbor in hex.neighborRefs)
-                {
-                    if (neighbor.elevation < lowestElevation)
-                    {
-                        lowestElevation = neighbor.elevation;
-                        lowestNeighbor = neighbor;
-                    }
-                }
-
-                if (lowestNeighbor != null && lowestNeighbor != hex)
-                {
-                    float flowAmount = Mathf.Min(hex.waterAmount, waterFlowSpeed);
-                    hex.waterAmount -= flowAmount;
-
-                    if (!waterTransfer.ContainsKey(lowestNeighbor))
-                        waterTransfer[lowestNeighbor] = 0f;
-
-                    waterTransfer[lowestNeighbor] += flowAmount;
-                }
-            }
-
-            foreach (var kvp in waterTransfer)
-                kvp.Key.waterAmount += kvp.Value;
+            hex.isRiver = false;
+            hex.isLake = true;
         }
-
-        // Marcar ríos y lagos
-        foreach (var hex in worldMap.Values)
+        else
         {
-            hex.isRiver = hex.waterAmount >= riverThreshold;
-            hex.isLake = hex.waterAmount >= lakeThreshold && !hex.isRiver;
+            hex.isRiver = false;
+            hex.isLake = false;
         }
-
-        Debug.Log("🌊 Simulación de agua completada.");
     }
+
+    Debug.Log("🌊 Simulación de flujo de agua completada con lógica mejorada.");
+}
+
 
     // Proporcionar materiales para que ChunkGenerator los aplique
     public Material GetRiverMaterial() => riverMaterial;
