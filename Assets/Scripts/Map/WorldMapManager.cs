@@ -243,49 +243,51 @@ if (mountainZoneNoise > 0.95f)
 
   public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
 {
-    // 🌍 Mascara continental con control dinámico
-    float continentMask = Mathf.PerlinNoise(x * 0.0235f, y * 0.0225f);  // Baja frecuencia para continente
+    // 🌍 Mascara continental usando Perlin global (controla zonas continentales)
+    float continentMask = Mathf.PerlinNoise(
+        (x / (float)mapWidth) * perlinSettings.continentFreq + perlinSettings.seed,
+        (y / (float)mapHeight) * perlinSettings.continentFreq + perlinSettings.seed
+    );
+float baseNoise = Noise.GetNoise(x, y);
+    baseNoise = Mathf.InverseLerp(-1f, 1f, baseNoise);  // Ajustar el rango del ruido
+
+
     float baseElevation = (continentMask * perlinSettings.baseAmplitude) + perlinSettings.baseOffset;
 
-    // Añade detalle con FastNoise
-    float detailNoise = Noise.GetNoise(x + 1000, y + 1000) * 0.4f;  // Ajusta amplitud
-    baseElevation += detailNoise;
-
-    // 🌊 Control explícito de océanos - Simulación estilo Minecraft
-    float waterLevel = 16f;  // Nivel base para agua (similar a "nivel del mar")
+    // 🌊 Control del nivel de agua
+    float waterLevel = 16f;
     if (baseElevation < waterLevel)
     {
-baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.continentalFlattenFactor;
-
+        baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.continentalFlattenFactor;
     }
 
-    // 🌄 Transiciones suaves y factor de erosión entre plains, hills, mountains
-    if (baseElevation > waterLevel + 5f && baseElevation < waterLevel + 25f)
-    {
-        float erosionNoise = Noise.GetNoise(x + 5000, y + 5000) * 3f;
-        float erosionFactor = Mathf.InverseLerp(waterLevel + 5f, waterLevel + 25f, baseElevation);
-        baseElevation = Mathf.Lerp(baseElevation, waterLevel + 20f + erosionNoise, erosionFactor);
-    }
-    else if (baseElevation >= waterLevel + 25f)
-    {
-        float peakNoise = Noise.GetNoise(x + 6000, y + 6000) * 15f;
-        baseElevation += peakNoise;
-        baseElevation = Mathf.Lerp(baseElevation, waterLevel + 35f, 0.3f);  // Controla altura máxima
-    }
+ // 🌄 🌎 NUEVO RUIDO REGIONAL A GRAN ESCALA 🌎 🌄
+   float globalRegionNoise = Noise.GetNoise(x * perlinSettings.globalFreq, y * perlinSettings.globalFreq);
+baseElevation += globalRegionNoise * perlinSettings.globalAmplitude;
 
-    // Variabilidad final
-    baseElevation += Random.Range(-0.5f, 0.5f);
+        // 🌄 Ruido adicional para microvariaciones (simula subzonas altas/bajas)
+        float regionalNoise = Noise.GetNoise(x + 2000, y + 2000) * 10f;  // Ajusta el *10f según amplitud deseada
+    baseElevation += regionalNoise;
 
-    // Simulación básica de ríos
-    float river = 1f - Noise.GetNoise(x + 3000, y + 3000);
-    baseElevation -= river * (perlinSettings.riverDepth * 0.3f);
+    // 🌄 Detalle fino para variabilidad local
+    float detailNoise = Noise.GetNoise(x + 4000, y + 4000) * 2f;
+    baseElevation += detailNoise;
+
+    // 🌄 Eliminamos la lógica de MountainThreshold (opcional)
+    // Esto permite que la elevación se distribuya más naturalmente
+    // y no dependa de un umbral único.
+    // Si se desea mantener control, podríamos hacer:
+    // baseElevation += Mathf.Max(0, regionalNoise - perlinSettings.mountainThreshold) * perlinSettings.ridgeAmplitude;
+
+    // 🌊 Reducción por ríos
+    float riverNoise = 1f - Noise.GetNoise(x + 6000, y + 6000);
+    baseElevation -= riverNoise * (perlinSettings.riverDepth * 0.3f);
+
+    // Variabilidad aleatoria muy fina
+    baseElevation += Random.Range(-0.2f, 0.2f);
 
     return baseElevation;
 }
-
-
-
-
 
 
    public float CalculateSlopeMagnitude(int x, int y, float epsilon, int mapWidth, int mapHeight)
@@ -315,23 +317,34 @@ baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.conti
 {
     float elevation = hex.elevation;
     float slope = hex.slope;
+    int x = hex.coordinates.Q;
+    int y = hex.coordinates.R;
 
     if (elevation < -10f) return TerrainType.Ocean;
     if (elevation < 12f) return TerrainType.CoastalWater;
 
-  if (elevation >= 11f && elevation < 13f)
+    float valleyNoise = Noise.GetNoise(x + 8000, y + 8000);
+    if (valleyNoise > 0.6f && elevation >= 14f && elevation < 50f)
+        return TerrainType.Valley;
+
+       if (elevation >= 11f && elevation < 13f)
 {
-    if (slope < 0.05f)
+    if (slope < 0.2f)  // Menos restrictivo, pendiente más suave
     {
-float pseudoRandom = PerlinUtility.Perlin(new HexCoordinates(hex.coordinates.Q + 10000, hex.coordinates.R + 10000), 0.1f, 9999, mapWidth, mapHeight);
-        if (pseudoRandom < 0.9f) return TerrainType.SandyBeach;
-        else return TerrainType.RockyBeach;
+        // Aumentar probabilidad de SandyBeach al 98%
+        float pseudoRandom = PerlinUtility.Perlin(new HexCoordinates(hex.coordinates.Q + 10000, hex.coordinates.R + 10000), 0.1f, 9999, mapWidth, mapHeight);
+        if (pseudoRandom < 0.98f)
+            return TerrainType.SandyBeach;
+        else
+            return TerrainType.RockyBeach;
     }
     else
     {
-        return TerrainType.RockyBeach;
+        // Opcional: Mantener zonas de mayor pendiente como SandyBeach también
+       // return TerrainType.SandyBeach;  // O puedes decidir Rocky si quieres
     }
 }
+
 
     if (elevation >= 13f && elevation < 22f) return TerrainType.Plains;            // Plains extendido
     if (elevation >= 22f && elevation < 24f) return TerrainType.LowHills;         // Nuevo rango intermedio
@@ -339,7 +352,7 @@ float pseudoRandom = PerlinUtility.Perlin(new HexCoordinates(hex.coordinates.Q +
     if (elevation >= 26f && elevation < 30f) return TerrainType.Plateau;         // Plateau extendido
     if (elevation >= 30f) return TerrainType.Mountain;                           // Mountain más amplio
 
-    if (elevation >= -1f && elevation < 40f && slope >= 0.02f && slope < 0.2f) return TerrainType.Valley;
+    if (elevation >= -1f && elevation < 40f && slope >= 0.01f && slope < 0.29f) return TerrainType.Valley;
 
     return TerrainType.Plains;  // Fallback solo si no coincide
 }
