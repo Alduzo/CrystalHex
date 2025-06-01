@@ -19,9 +19,8 @@ public class GameManager : MonoBehaviour
     public ChunkManager chunkManager;
     public WorldMapManager worldMapManager;
 
-    [SerializeField] public RawImage minimapImage;
-
-    private bool minimapGenerated = false;
+    // Eliminamos la referencia directa al RawImage del minimapa
+    //public RawImage minimapImage;
 
     private void Awake()
     {
@@ -44,23 +43,15 @@ public class GameManager : MonoBehaviour
             // Nivel cercano - solo mainCamera activa
             if (minimapCamera.enabled) minimapCamera.enabled = false;
             if (globeCamera != null && globeCamera.enabled) globeCamera.enabled = false;
-            minimapGenerated = false;
         }
         else if (currentZoom > closeThreshold && currentZoom <= mediumThreshold)
         {
             if (!minimapCamera.enabled) minimapCamera.enabled = true;
-
-            if (!minimapGenerated)
-            {
-                Debug.Log("🗺 Generando minimapa procedural...");
-                worldMapManager.GenerateMinimapTextureOrSphere();
-                minimapGenerated = true;
-            }
+            // Ahora la generación del minimapa la maneja MinimapController
         }
         else if (currentZoom > mediumThreshold)
         {
-            if (minimapCamera.enabled) minimapCamera.enabled = false;  // Desactiva minimapCamera a este nivel
-            // Si llegas a tener una globeCamera, aquí podrías activar otra, pero vamos a dejarla desactivada por ahora
+            if (minimapCamera.enabled) minimapCamera.enabled = false;
         }
     }
 }

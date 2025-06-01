@@ -1,6 +1,6 @@
 # HexMap – Código fuente consolidado
 
-_Generado el Tue May 27 22:04:50 EST 2025_\n
+_Generado el Sat May 31 23:58:20 EST 2025_\n
 
 ---
 
@@ -3678,22 +3678,25 @@ public class ChunkGenerator
                     var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
                     var renderer = hex.GetComponent<HexRenderer>();
 
-                    if (renderer != null)
-                    {
-                        var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
-                        if (config != null)
+                        if (renderer != null)
                         {
-                            float elevationHeight = hexData.elevation * config.elevationScale;
-                            renderer.SetHeight(elevationHeight);
+                            var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+                            if (config != null)
+                            {
+                                float elevationHeight = hexData.elevation * config.elevationScale;
+                                renderer.SetHeight(elevationHeight);
 
-                            Material mat = config.GetMaterialFor(hexData.terrainType);
-                            if (mat != null)
-                                renderer.GetComponent<MeshRenderer>().material = mat;
-                        }
-                        else
-                        {
-                            Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
-                        }
+                                Material mat = config.GetMaterialFor(hexData.terrainType);
+                                if (mat != null)
+                                    renderer.GetComponent<MeshRenderer>().material = mat;
+
+                            }
+
+                            else
+                            {
+                              //  Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
+                            }
+                            renderer.SetVisualByHex(hexData);
                     }
 
                     // Asignar vecinos con la nueva lógica proactiva
@@ -4505,10 +4508,12 @@ public enum TerrainType
     SandyBeach,
     RockyBeach,
     Plains,
+    LowHills,
     Hills,
     Valley,
     Mountain,
-    Plateau
+    Plateau,
+    Peak
 }
 
 public enum HexType { Natural, Rural, Urban }
@@ -4641,6 +4646,8 @@ public class HexRenderer : MonoBehaviour
         BuildMesh();
     }
 
+    
+
     void BuildMesh()
     {
         if (_mf != null) _mf.sharedMesh = null;
@@ -4727,6 +4734,34 @@ public class HexRenderer : MonoBehaviour
 
     }
     
+public void SetVisualByHex(HexData hexData)
+{
+    if (hexData.isRiver)
+    {
+        // Asignar color azul para agua
+        topColor = Color.blue;
+        sideColor = new Color(0, 0, 0.5f);  // Lado más oscuro para agua
+    }
+    else
+    {
+        // Asignar color según terrainType o por defecto
+        switch (hexData.terrainType)
+        {
+            case TerrainType.Plains:
+                topColor = Color.green; sideColor = Color.black;
+                break;
+            case TerrainType.Mountain:
+                topColor = Color.gray; sideColor = Color.black;
+                break;
+            // Agrega más casos según necesidad
+            default:
+                topColor = Color.magenta; sideColor = Color.black;
+                break;
+        }
+    }
+
+    BuildMesh();  // Actualiza el mesh con nuevos colores
+}
 
 
     
@@ -4743,16 +4778,27 @@ public class PerlinSettings : MonoBehaviour
 {
 
 
+public float globalFreq = 0.001f;
+public float globalAmplitude = 30f;
 
     [Header("Base Elevation (Continente)")]
+
+
+    [Range(0.01f, 1f)]
+    public float continentFreq = 0.02f;
+
+    [Range(0f, 01f)]
+    public float continentalFlattenFactor = 0.5f;  // Valor inicial 0.5
     public float baseFreq = 0.005f;            // Frecuencia base para el continente
-    public float baseOffset = 50f; 
+    public float baseOffset = 50f;
+    public float regionalNoise = 10f;
 
     public float baseAmplitude = 150f;          // Altura máxima del continente
     public int octaves = 6;                    // Octavas para el fractal Perlin
 
     public float lacunarity = 2.5f;            // Factor de frecuencia
     public float persistence = 0.4f;           // Factor de amplitud
+
 
     [Header("Montañas (Ridge Noise)")]
     public float ridgeFreq = 0.02f;            // Frecuencia del Ridge (montañas)
@@ -4767,6 +4813,14 @@ public class PerlinSettings : MonoBehaviour
     public int seed = 200500;                  // Semilla para variabilidad
     public float moistureFreq = 0.03f;         // Opcional, para humedad
     public float tempFreq = 0.015f;            // Opcional, para temperatura
+
+[Range(0.001f, 1f)]
+public float waterFreq = 0.02f;
+    [Range(0.1f, 10f)]
+    public float waterAmplitude = 1f;  // Opcional, para controlar la "altura" o "cantidad"
+
+public float waterLevel = 1f;  // Opcional, para controlar la "altura" o "cantidad"
+
 
     [Header("Anomaly Settings (Opcional)")]
     [Range(0f, 1f)] public float anomalyThreshold = 0.15f;
@@ -4847,12 +4901,16 @@ using UnityEngine;
 
 public static class PerlinUtility
 {
-    public static float Perlin(HexCoordinates coord, float frequency, int seedOffset)
-    {
-        float nx = (coord.Q * 73856093 + seedOffset * 19349663) * frequency;
-        float ny = (coord.R * 83492791 + seedOffset * 83492791) * frequency;
-        return Mathf.PerlinNoise(nx, ny);
-    }
+   public static float Perlin(HexCoordinates coord, float frequency, int seedOffset, int mapWidth, int mapHeight)
+{
+    float scale = 300f / Mathf.Min(mapWidth, mapHeight);  // 300 es el denominador base
+    float scaledFreq = frequency * scale;
+
+    float nx = (coord.Q * 73856093 + seedOffset * 19349663) * scaledFreq;
+    float ny = (coord.R * 83492791 + seedOffset * 83492791) * scaledFreq;
+    return Mathf.PerlinNoise(nx, ny);
+}
+
 
     public static float FractalPerlin(HexCoordinates coord, float baseFreq, int octaves, float lacunarity, float persistence, int seedOffset)
     {
@@ -5055,69 +5113,60 @@ public class WaterManager : MonoBehaviour
             Destroy(gameObject);
     }
 
-    public void SimulateWaterFlow(Dictionary<HexCoordinates, HexData> worldMap)
+   public void SimulateWaterFlow()
+{
+    foreach (var kvp in WorldMapManager.Instance.GetAllHexes())
     {
-        if (worldMap == null)
+        HexData hex = kvp;
+
+        // 🌊 Flujo inicial basado en humedad y pendiente
+        float moistureFactor = hex.moisture;
+        float slopeFactor = Mathf.Clamp01(hex.slope * 10f);  // Normaliza pendiente (0-1)
+
+        // 🌊 Capacidad de absorción según tipo de terreno
+        float absorption = 1f;
+        switch (hex.terrainType)
         {
-            Debug.LogWarning("🌊 WaterManager: worldMap es nulo. Simulación cancelada.");
-            return;
+            case TerrainType.Plains:
+            case TerrainType.Valley:
+            case TerrainType.Plateau:
+                absorption = 0.7f;  // Más capacidad de absorción
+                break;
+            case TerrainType.Hills:
+                absorption = 0.4f;  // Menos absorción
+                break;
+            case TerrainType.Mountain:
+                absorption = 0.2f;  // Muy baja absorción
+                break;
         }
 
-        Debug.Log("🌊 Iniciando simulación de flujo de agua...");
+        // 💧 Calcular flujo inicial (retención y pendiente)
+        float baseWater = moistureFactor * initialRainAmount * absorption;
+        float flowBoost = slopeFactor * initialRainAmount * (1f - absorption);  // Complementa absorción
 
-        // Inicializa agua
-        foreach (var hex in worldMap.Values)
+        hex.waterAmount = baseWater + flowBoost;
+
+        // 🏞 Visualización opcional: marcar ríos o lagos si excede umbral
+        if (hex.waterAmount > 1.5f)  // Umbral ajustable
         {
-            float rainfall = PerlinUtility.Perlin(hex.coordinates, WorldMapManager.Instance.perlinSettings.moistureFreq, WorldMapManager.Instance.perlinSettings.seed);
-            hex.waterAmount = rainfall * initialRainAmount;
+            hex.isRiver = true;
+            hex.isLake = false;
         }
-
-        // Simulación dinámica
-        for (int tick = 0; tick < simulationTicks; tick++)
+        else if (hex.waterAmount > 0.8f)  // Menor acumulación
         {
-            Dictionary<HexData, float> waterTransfer = new();
-
-            foreach (var hex in worldMap.Values)
-            {
-                if (hex.waterAmount <= 0f) continue;
-
-                HexData lowestNeighbor = null;
-                float lowestElevation = hex.elevation;
-
-                foreach (var neighbor in hex.neighborRefs)
-                {
-                    if (neighbor.elevation < lowestElevation)
-                    {
-                        lowestElevation = neighbor.elevation;
-                        lowestNeighbor = neighbor;
-                    }
-                }
-
-                if (lowestNeighbor != null && lowestNeighbor != hex)
-                {
-                    float flowAmount = Mathf.Min(hex.waterAmount, waterFlowSpeed);
-                    hex.waterAmount -= flowAmount;
-
-                    if (!waterTransfer.ContainsKey(lowestNeighbor))
-                        waterTransfer[lowestNeighbor] = 0f;
-
-                    waterTransfer[lowestNeighbor] += flowAmount;
-                }
-            }
-
-            foreach (var kvp in waterTransfer)
-                kvp.Key.waterAmount += kvp.Value;
+            hex.isRiver = false;
+            hex.isLake = true;
         }
-
-        // Marcar ríos y lagos
-        foreach (var hex in worldMap.Values)
+        else
         {
-            hex.isRiver = hex.waterAmount >= riverThreshold;
-            hex.isLake = hex.waterAmount >= lakeThreshold && !hex.isRiver;
+            hex.isRiver = false;
+            hex.isLake = false;
         }
-
-        Debug.Log("🌊 Simulación de agua completada.");
     }
+
+    Debug.Log("🌊 Simulación de flujo de agua completada con lógica mejorada.");
+}
+
 
     // Proporcionar materiales para que ChunkGenerator los aplique
     public Material GetRiverMaterial() => riverMaterial;
@@ -5162,6 +5211,8 @@ public class WorldMapManager : MonoBehaviour
     [Header("Map Settings")]
     public int mapWidth = 1000;
     public int mapHeight = 1000;
+
+
 
     private Dictionary<HexCoordinates, HexData> worldMap = new();
 
@@ -5250,27 +5301,72 @@ public class WorldMapManager : MonoBehaviour
 
     // ✅ MÉTODOS CLAVE COMPLETOS Y SIN CAMBIOS
 
-    public HexData GetOrGenerateHex(HexCoordinates coord)
+   public HexData GetOrGenerateHex(HexCoordinates coord)
+{
+    if (worldMap.TryGetValue(coord, out var existing))
+        return existing;
+
+    HexData hex = new HexData();
+    hex.coordinates = coord;
+
+    hex.elevation = CalculateElevation(coord.Q, coord.R, mapWidth, mapHeight);
+    hex.slope = CalculateSlopeMagnitude(coord.Q, coord.R, 0.01f, mapWidth, mapHeight);
+
+    // Frecuencia de montañas
+float mountainZoneNoise = PerlinUtility.Perlin(coord, 0.02f, 2024, mapWidth, mapHeight);
+if (mountainZoneNoise > 0.95f)
+{
+    hex.elevation += 50f;  
+    float localMountainNoise = PerlinUtility.Perlin(coord, 0.1f, 2025, mapWidth, mapHeight);
+    hex.elevation += localMountainNoise * 10f;  // Relieve extra local
+}
+
+    hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.seed, mapWidth, mapHeight);
+    hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.seed, mapWidth, mapHeight);
+    /* float waterNoise = PerlinUtility.Perlin(coord, perlinSettings.waterFreq, perlinSettings.seed);
+        hex.waterAmount = waterNoise * perlinSettings.waterAmplitude;
+        hex.isRiver = hex.waterAmount > 0.5f;  // Umbral de prueba para visualizar ríos */
+
+
+    // Asignación inicial de agua
+        hex.waterAmount = Mathf.Max(0, hex.moisture * 10f - hex.slope * 20f);  // Base simple: humedad - pendiente
+    if (hex.waterAmount > 1f)
     {
-        if (worldMap.TryGetValue(coord, out var existing))
-            return existing;
-
-        HexData hex = new HexData();
-        hex.coordinates = coord;
-
-        hex.elevation = CalculateElevation(coord.Q, coord.R, mapWidth, mapHeight);
-        hex.slope = CalculateSlopeMagnitude(coord.Q, coord.R, 0.01f, mapWidth, mapHeight);
-
-        hex.moisture = PerlinUtility.Perlin(coord, perlinSettings.moistureFreq, perlinSettings.seed);
-        hex.temperature = PerlinUtility.Perlin(coord, perlinSettings.tempFreq, perlinSettings.seed);
-
-        foreach (HexCoordinates neighbor in coord.GetAllNeighbors())
-            hex.neighborCoords.Add(neighbor);
-
-        hex.terrainType = DetermineTerrainType(hex);
-        worldMap[coord] = hex;
-        return hex;
+        hex.isRiver = true;
+        hex.isLake = false;  // Esto lo podemos ajustar si detectamos zonas bajas con acumulación
     }
+
+    foreach (HexCoordinates neighbor in coord.GetAllNeighbors())
+        hex.neighborCoords.Add(neighbor);
+
+    hex.terrainType = DetermineTerrainType(hex);
+    
+    //Condiciones rugosidad para tipos de terreno hills y Montañas
+
+    if (hex.terrainType == TerrainType.Hills || hex.terrainType == TerrainType.LowHills)
+        {
+            float extraNoise = PerlinUtility.RidgePerlin(hex.coordinates, 0.1f, perlinSettings.seed);
+            hex.elevation += extraNoise * 3f;  // Aumenta variabilidad para Hills
+        }
+        else if (hex.terrainType == TerrainType.Mountain)
+        {
+            float extraNoise = PerlinUtility.RidgePerlin(hex.coordinates, 0.05f, perlinSettings.seed);
+            hex.elevation += extraNoise * 5f;  // Aumenta más variabilidad para Mountains
+        }
+
+    // Forzar menor rugosidad (aplanar) plains, plateau y valleys 
+        if (hex.terrainType == TerrainType.Plains || hex.terrainType == TerrainType.Plateau || hex.terrainType == TerrainType.Valley)
+        {
+
+            hex.elevation = Mathf.Lerp(hex.elevation, Mathf.Round(hex.elevation), 0.8f);  // Suaviza variabilidad
+            hex.slope *= 0.05f;  // Reduce pendiente
+        }
+    worldMap[coord] = hex;
+    
+
+    return hex;
+}
+
 
     public bool TryGetHex(HexCoordinates coord, out HexData hex) =>
         worldMap.TryGetValue(coord, out hex);
@@ -5334,24 +5430,51 @@ public class WorldMapManager : MonoBehaviour
 
   public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
 {
-    float baseElevation = (Noise.GetNoise(x, y) * perlinSettings.baseAmplitude * 0.5f) + perlinSettings.baseOffset;  // Reduzco a 50%
+    // 🌍 Mascara continental usando Perlin global (controla zonas continentales)
+    float continentMask = Mathf.PerlinNoise(
+        (x / (float)mapWidth) * perlinSettings.continentFreq + perlinSettings.seed,
+        (y / (float)mapHeight) * perlinSettings.continentFreq + perlinSettings.seed
+    );
+float baseNoise = Noise.GetNoise(x, y);
+    baseNoise = Mathf.InverseLerp(-1f, 1f, baseNoise);  // Ajustar el rango del ruido
 
-    float detailNoise = Noise.GetNoise(x + 1000, y + 1000) * 0.3f;  // Suavizo detalle
+
+    float baseElevation = (continentMask * perlinSettings.baseAmplitude) + perlinSettings.baseOffset;
+
+    // 🌊 Control del nivel de agua
+    float waterLevel = 16f;
+    if (baseElevation < waterLevel)
+    {
+        baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.continentalFlattenFactor;
+    }
+
+ // 🌄 🌎 NUEVO RUIDO REGIONAL A GRAN ESCALA 🌎 🌄
+   float globalRegionNoise = Noise.GetNoise(x * perlinSettings.globalFreq, y * perlinSettings.globalFreq);
+baseElevation += globalRegionNoise * perlinSettings.globalAmplitude;
+
+        // 🌄 Ruido adicional para microvariaciones (simula subzonas altas/bajas)
+        float regionalNoise = Noise.GetNoise(x + 2000, y + 2000) * 10f;  // Ajusta el *10f según amplitud deseada
+    baseElevation += regionalNoise;
+
+    // 🌄 Detalle fino para variabilidad local
+    float detailNoise = Noise.GetNoise(x + 4000, y + 4000) * 2f;
     baseElevation += detailNoise;
 
-    float ridge = Noise.GetNoise(x + 1000, y + 1000) * (perlinSettings.ridgeAmplitude * 0.3f);  // Solo 30%
-    if (baseElevation > perlinSettings.mountainThreshold)
-        baseElevation += ridge * (baseElevation - perlinSettings.mountainThreshold);
+    // 🌄 Eliminamos la lógica de MountainThreshold (opcional)
+    // Esto permite que la elevación se distribuya más naturalmente
+    // y no dependa de un umbral único.
+    // Si se desea mantener control, podríamos hacer:
+    // baseElevation += Mathf.Max(0, regionalNoise - perlinSettings.mountainThreshold) * perlinSettings.ridgeAmplitude;
 
-    float river = 1f - Noise.GetNoise(x + 3000, y + 3000);
-    baseElevation -= river * (perlinSettings.riverDepth * 0.3f);  // Ríos suaves
+    // 🌊 Reducción por ríos
+    float riverNoise = 1f - Noise.GetNoise(x + 6000, y + 6000);
+    baseElevation -= riverNoise * (perlinSettings.riverDepth * 0.3f);
+
+    // Variabilidad aleatoria muy fina
+    baseElevation += Random.Range(-0.2f, 0.2f);
 
     return baseElevation;
 }
-
-
-
-
 
 
    public float CalculateSlopeMagnitude(int x, int y, float epsilon, int mapWidth, int mapHeight)
@@ -5377,85 +5500,114 @@ public class WorldMapManager : MonoBehaviour
     public static bool IsWater(TerrainType type) =>
         type == TerrainType.Ocean || type == TerrainType.CoastalWater;
 
-   private TerrainType DetermineTerrainType(HexData hex)
+  private TerrainType DetermineTerrainType(HexData hex)
 {
     float elevation = hex.elevation;
     float slope = hex.slope;
+    int x = hex.coordinates.Q;
+    int y = hex.coordinates.R;
 
-    // Agua
-    if (elevation < -2f) return TerrainType.Ocean;
-    if (elevation < 0f) return TerrainType.CoastalWater;
+    if (elevation < -10f) return TerrainType.Ocean;
+    if (elevation < 12f) return TerrainType.CoastalWater;
 
-    // Playas
-    if (elevation >= 0f && elevation < 1f && slope < 0.05f)
-        return TerrainType.SandyBeach;
-    if (elevation >= 0f && elevation < 1f && slope >= 0.05f)
-        return TerrainType.RockyBeach;
-
-    // Llanuras: Muy suaves y bajas
-    if (elevation >= 1f && elevation < 8f && slope < 0.05f)
-        return TerrainType.Plains;
-
-    // Colinas: Moderada elevación y pendiente
-    if (elevation >= 8f && elevation < 25f && slope >= 0.05f && slope < 0.2f)
-        return TerrainType.Hills;
-
-    // Mesetas: Altura media pero poca pendiente
-    if (elevation >= 25f && elevation < 50f && slope < 0.1f)
-        return TerrainType.Plateau;
-
-    // Montañas: Elevación alta y pendiente marcada
-    if (elevation >= 50f && slope >= 0.2f)
-        return TerrainType.Mountain;
-
-    // Valles: Pendiente moderada y elevación media-baja
-    if (elevation >= -1f && elevation < 20f && slope >= 0.02f && slope < 0.2f)
+    float valleyNoise = Noise.GetNoise(x + 8000, y + 8000);
+    if (valleyNoise > 0.6f && elevation >= 14f && elevation < 50f)
         return TerrainType.Valley;
 
-    // Por defecto
-    return TerrainType.Plains;
+       if (elevation >= 11f && elevation < 13f)
+{
+    if (slope < 0.2f)  // Menos restrictivo, pendiente más suave
+    {
+        // Aumentar probabilidad de SandyBeach al 98%
+        float pseudoRandom = PerlinUtility.Perlin(new HexCoordinates(hex.coordinates.Q + 10000, hex.coordinates.R + 10000), 0.1f, 9999, mapWidth, mapHeight);
+        if (pseudoRandom < 0.98f)
+            return TerrainType.SandyBeach;
+        else
+            return TerrainType.RockyBeach;
+    }
+    else
+    {
+        // Opcional: Mantener zonas de mayor pendiente como SandyBeach también
+       // return TerrainType.SandyBeach;  // O puedes decidir Rocky si quieres
+    }
+}
+
+
+    if (elevation >= 13f && elevation < 22f) return TerrainType.Plains;            // Plains extendido
+    if (elevation >= 22f && elevation < 24f) return TerrainType.LowHills;         // Nuevo rango intermedio
+    if (elevation >= 24f && elevation < 26f) return TerrainType.Hills;           // Hills
+    if (elevation >= 26f && elevation < 30f) return TerrainType.Plateau;         // Plateau extendido
+    if (elevation >= 30f) return TerrainType.Mountain;                           // Mountain más amplio
+
+    if (elevation >= -1f && elevation < 40f && slope >= 0.01f && slope < 0.31f) return TerrainType.Valley;
+
+    return TerrainType.Plains;  // Fallback solo si no coincide
 }
 
 
 
 
 
+
+
+
    public void GenerateMinimapTextureOrSphere()
+{
+    Debug.Log("🗺 Generando minimapa procedural actualizado...");
+
+    int resolution = minimapResolution;  // Usa la resolución configurable
+    Texture2D texture = new Texture2D(resolution, resolution);
+
+    for (int y = 0; y < resolution; y++)
     {
-        Debug.Log("🗺 Generando minimapa procedural...");
-
-        int resolution = 256;  // Resolución básica
-        Texture2D texture = new Texture2D(resolution, resolution);
-
-        for (int y = 0; y < resolution; y++)
+        for (int x = 0; x < resolution; x++)
         {
-            for (int x = 0; x < resolution; x++)
-            {
-                int worldX = Mathf.RoundToInt((float)x / resolution * mapWidth);
-                int worldY = Mathf.RoundToInt((float)y / resolution * mapHeight);
+            int worldX = Mathf.RoundToInt((float)x / resolution * mapWidth);
+            int worldY = Mathf.RoundToInt((float)y / resolution * mapHeight);
 
-                float elevation = CalculateElevation(worldX, worldY, mapWidth, mapHeight);
-                float slope = CalculateSlopeMagnitude(worldX, worldY, 0.01f, mapWidth, mapHeight);
-                TerrainType terrain = DetermineTerrainType(new HexData { elevation = elevation, slope = slope });
+            // Calcula elevación y pendiente con métodos actualizados
+            float elevation = CalculateElevation(worldX, worldY, mapWidth, mapHeight);
+            float slope = CalculateSlopeMagnitude(worldX, worldY, 0.01f, mapWidth, mapHeight);
 
-                Color color = chunkMapConfig.GetColorFor(terrain);
-                texture.SetPixel(x, y, color);
-            }
-        }
+            // Usa moisture y temperature si quieres añadir variabilidad
+            float moisture = PerlinUtility.Perlin(new HexCoordinates(worldX, worldY), perlinSettings.moistureFreq, perlinSettings.seed, mapWidth, mapHeight);
+            float temperature = PerlinUtility.Perlin(new HexCoordinates(worldX, worldY), perlinSettings.tempFreq, perlinSettings.seed, mapWidth, mapHeight);
 
-        texture.Apply();
+            // Determina tipo de terreno
+            TerrainType terrain = DetermineTerrainType(new HexData { elevation = elevation, slope = slope, moisture = moisture, temperature = temperature });
 
-        if (GameManager.Instance != null && GameManager.Instance.minimapImage != null)
-        {
-            GameManager.Instance.minimapImage.texture = texture;
-            GameManager.Instance.minimapImage.gameObject.SetActive(true);
-            Debug.Log("🗺 Minimapa generado y asignado al RawImage.");
-        }
-        else
-        {
-            Debug.LogWarning("⚠️ MinimapImage no asignado en GameManager.");
+            // Obtén color base del terreno
+            Color color = chunkMapConfig.GetColorFor(terrain);
+
+            // 🌊 Opcional: si el agua inicial está configurada, marcar zonas con humedad alta y pendiente baja
+            float waterAmount = Mathf.Max(0, moisture * 10f - slope * 20f);
+            if (waterAmount > 1f)
+                color = Color.Lerp(color, Color.blue, 0.5f);  // Mezcla con azul para ríos
+            else if (waterAmount > 0.5f)
+                color = Color.Lerp(color, Color.cyan, 0.3f);  // Mezcla con cyan para lagos
+
+            // 🌄 Opcional: marcar zonas montañosas con un tinte gris o marrón
+            if (elevation > 25f)
+                color = Color.Lerp(color, new Color(0.4f, 0.3f, 0.3f), 0.4f);  // Mezcla con marrón-gris
+
+            texture.SetPixel(x, y, color);
         }
     }
+
+    texture.Apply();
+
+    if (GameManager.Instance != null && GameManager.Instance.minimapImage != null)
+    {
+        GameManager.Instance.minimapImage.texture = texture;
+        GameManager.Instance.minimapImage.gameObject.SetActive(true);
+        Debug.Log("🗺 Minimapa generado y asignado al RawImage.");
+    }
+    else
+    {
+        Debug.LogWarning("⚠️ MinimapImage no asignado en GameManager.");
+    }
+}
+
 
 
 
