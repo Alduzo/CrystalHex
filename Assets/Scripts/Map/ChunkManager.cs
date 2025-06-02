@@ -12,32 +12,37 @@ public class ChunkManager : MonoBehaviour
 
     [Range(0, 10)]
     public int unloadRadius = 2;
+    public Transform player;
+
+    public static int ChunkSize { get; set; }
+
 
 
     public Dictionary<Vector2Int, GameObject> loadedChunks = new();
 
     private void Awake()
     {
+        ChunkGenerator.ChunkSize = chunkSize;
         Instance = this;
         StartCoroutine(DelayedInit());
+        
     }
 
-    public void InitializeChunks(int range)
+ public void InitializeChunks(int range)
+{
+    loadedChunks.Clear();
+    Vector2Int initialCoord = new Vector2Int(0, 0);
+    if (!loadedChunks.ContainsKey(initialCoord))
     {
-        Debug.Log("🚀 Inicializando chunks alrededor del centro con PerlinSettings actualizado...");
-        loadedChunks.Clear();
-
-        for (int x = -range; x <= range; x++)
-        {
-            for (int y = -range; y <= range; y++)
-            {
-                Vector2Int coord = new Vector2Int(x, y);
-                GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
-                loadedChunks[coord] = chunk;
-            }
-        }
-        Debug.Log($"🌍 {loadedChunks.Count} chunks generados.");
+        GameObject chunk = ChunkGenerator.GenerateChunk(initialCoord, chunkSize, hexPrefab);
+        loadedChunks.Add(initialCoord, chunk);
+        Debug.Log("🌱 Chunk inicial generado en (0,0)");
     }
+}
+
+
+
+
 
     private IEnumerator DelayedInit()
     {
@@ -55,6 +60,7 @@ public class ChunkManager : MonoBehaviour
 
     public void UpdateChunks(Vector2Int playerChunkCoord)
     {
+
         HashSet<Vector2Int> chunksToKeep = new();
         List<Vector2Int> toUnload = new();
         bool anyNewChunks = false;
@@ -66,12 +72,20 @@ public class ChunkManager : MonoBehaviour
                 Vector2Int coord = new Vector2Int(playerChunkCoord.x + dx, playerChunkCoord.y + dy);
                 chunksToKeep.Add(coord);
 
-                if (!loadedChunks.ContainsKey(coord))
-                {
-                    GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
-                    loadedChunks[coord] = chunk;
-                    anyNewChunks = true;
-                }
+               if (!loadedChunks.ContainsKey(coord))
+{
+    int chunkStartQ = coord.x * chunkSize;
+    int chunkStartR = coord.y * chunkSize;
+   if (chunkStartQ < -WorldMapManager.MaxMapWidth / 2 || chunkStartQ >= WorldMapManager.MaxMapWidth / 2 ||
+    chunkStartR < -WorldMapManager.MaxMapHeight / 2 || chunkStartR >= WorldMapManager.MaxMapHeight / 2)
+    {
+        continue;  // Evita generar chunks fuera del rango
+    }
+
+    GameObject chunk = ChunkGenerator.GenerateChunk(coord, chunkSize, hexPrefab);
+    loadedChunks[coord] = chunk;
+    anyNewChunks = true;
+}
             }
 
         }
@@ -106,8 +120,8 @@ public class ChunkManager : MonoBehaviour
             foreach (var coord in loadedChunks.Keys)
             {
                 int dist = Mathf.Max(
-                    Mathf.Abs(coord.x - playerChunkCoord.x),
-                    Mathf.Abs(coord.y - playerChunkCoord.y)
+    Mathf.Abs(coord.x - playerChunkCoord.x),
+    Mathf.Abs(coord.y - playerChunkCoord.y)
                 );
 
                 if (dist > loadRadius + unloadRadius)

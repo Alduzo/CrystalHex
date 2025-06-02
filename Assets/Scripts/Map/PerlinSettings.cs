@@ -14,7 +14,7 @@ public float globalAmplitude = 30f;
     [Range(0.01f, 1f)]
     public float continentFreq = 0.02f;
 
-    [Range(0f, 01f)]
+    [Range(0f, 5f)]
     public float continentalFlattenFactor = 0.5f;  // Valor inicial 0.5
     public float baseFreq = 0.005f;            // Frecuencia base para el continente
     public float baseOffset = 50f;
@@ -25,6 +25,10 @@ public float globalAmplitude = 30f;
 
     public float lacunarity = 2.5f;            // Factor de frecuencia
     public float persistence = 0.4f;           // Factor de amplitud
+
+    [Header("Montañas (FractalPerlin)")]
+public float mountainFreq = 0.02f;  // Frecuencia para FractalPerlin
+public float mountainAmplitude = 50f;  // Magnitud máxima del efecto montaña
 
 
     [Header("Montañas (Ridge Noise)")]

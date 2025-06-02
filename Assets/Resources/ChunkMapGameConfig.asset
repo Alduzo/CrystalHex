@@ -28,9 +28,11 @@ MonoBehaviour:
   - terrainType: 6
     material: {fileID: 2100000, guid: 91e8eb71bdd6e4b649e40f55a9abd784, type: 2}
   - terrainType: 8
-    material: {fileID: 2100000, guid: 91e8eb71bdd6e4b649e40f55a9abd784, type: 2}
+    material: {fileID: 2100000, guid: e14bf7e929b824357a1bb55657b87799, type: 2}
   - terrainType: 7
     material: {fileID: 2100000, guid: 00bfb0aea9b064027ad455aeeb66051c, type: 2}
+  - terrainType: 10
+    material: {fileID: 2100000, guid: e3a90a0b9a53e4db2be26c07b9dd663c, type: 2}
   - terrainType: 9
     material: {fileID: 2100000, guid: 35b0a296aa0464b7881e3515a9b46ea2, type: 2}
-  elevationScale: 1.2
+  elevationScale: 0.5

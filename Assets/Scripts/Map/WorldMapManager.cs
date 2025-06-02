@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
-
+using System.Collections;
+using JetBrains.Annotations;
 
 
 public class WorldMapManager : MonoBehaviour
@@ -8,12 +9,18 @@ public class WorldMapManager : MonoBehaviour
 
 
 {
+   public static int MaxMapWidth => Instance.mapWidth;
+    public static int MaxMapHeight => Instance.mapHeight;
     public static WorldMapManager Instance { get; private set; }
     public static FastNoiseLite Noise { get; private set; }
 
     public PerlinSettings perlinSettings;
 
     public ChunkMapGameConfig chunkMapConfig;
+    public GameObject waterTilePrefab;  // Asignar en el inspector
+    public const float GlobalWaterLevel = 16f;
+
+
 
     [Header("MiniMap Settings")]
     // public MinimapController minimapController;  // Asigna desde Inspector
@@ -182,8 +189,10 @@ public class WorldMapManager : MonoBehaviour
         }
         worldMap[coord] = hex;
 
+        AssignWaterFeatures(hex);
 
         return hex;
+        
     }
 
 
@@ -225,6 +234,8 @@ public class WorldMapManager : MonoBehaviour
         hex.neighborsAssigned = true;
     }
 
+
+
     public HexBehavior GetHexBehavior(HexCoordinates coord)
     {
         if (TryGetHex(coord, out var hexData))
@@ -247,53 +258,72 @@ public class WorldMapManager : MonoBehaviour
 
     // Métodos originales: CalculateElevation, CalculateSlopeMagnitude, DetermineTerrainType, IsWater
 
-    public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
+ public float CalculateElevation(int x, int y, int mapWidth, int mapHeight)
+{
+    float continentMask = Mathf.PerlinNoise(
+        (x / (float)mapWidth) * perlinSettings.continentFreq + perlinSettings.seed,
+        (y / (float)mapHeight) * perlinSettings.continentFreq + perlinSettings.seed
+    );
+
+    float baseNoise = Noise.GetNoise(x, y);
+    baseNoise = Mathf.InverseLerp(-1f, 1f, baseNoise);
+
+    float baseElevation = (continentMask * perlinSettings.baseAmplitude) + perlinSettings.baseOffset;
+
+    float waterLevel = WorldMapManager.GlobalWaterLevel
+;
+    if (baseElevation < waterLevel * 1.2f)
     {
-        // 🌍 Mascara continental usando Perlin global (controla zonas continentales)
-        float continentMask = Mathf.PerlinNoise(
-            (x / (float)mapWidth) * perlinSettings.continentFreq + perlinSettings.seed,
-            (y / (float)mapHeight) * perlinSettings.continentFreq + perlinSettings.seed
-        );
-        float baseNoise = Noise.GetNoise(x, y);
-        baseNoise = Mathf.InverseLerp(-1f, 1f, baseNoise);  // Ajustar el rango del ruido
-
-
-        float baseElevation = (continentMask * perlinSettings.baseAmplitude) + perlinSettings.baseOffset;
-
-        // 🌊 Control del nivel de agua
-        float waterLevel = 16f;
-        if (baseElevation < waterLevel)
-        {
-            baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.continentalFlattenFactor;
-        }
-
-        // 🌄 🌎 NUEVO RUIDO REGIONAL A GRAN ESCALA 🌎 🌄
-        float globalRegionNoise = Noise.GetNoise(x * perlinSettings.globalFreq, y * perlinSettings.globalFreq);
-        baseElevation += globalRegionNoise * perlinSettings.globalAmplitude;
-
-        // 🌄 Ruido adicional para microvariaciones (simula subzonas altas/bajas)
-        float regionalNoise = Noise.GetNoise(x + 2000, y + 2000) * 10f;  // Ajusta el *10f según amplitud deseada
-        baseElevation += regionalNoise;
-
-        // 🌄 Detalle fino para variabilidad local
-        float detailNoise = Noise.GetNoise(x + 4000, y + 4000) * 2f;
-        baseElevation += detailNoise;
-
-        // 🌄 Eliminamos la lógica de MountainThreshold (opcional)
-        // Esto permite que la elevación se distribuya más naturalmente
-        // y no dependa de un umbral único.
-        // Si se desea mantener control, podríamos hacer:
-        // baseElevation += Mathf.Max(0, regionalNoise - perlinSettings.mountainThreshold) * perlinSettings.ridgeAmplitude;
-
-        // 🌊 Reducción por ríos
-        float riverNoise = 1f - Noise.GetNoise(x + 6000, y + 6000);
-        baseElevation -= riverNoise * (perlinSettings.riverDepth * 0.3f);
-
-        // Variabilidad aleatoria muy fina
-        baseElevation += Random.Range(-0.2f, 0.2f);
-
-        return baseElevation;
+        baseElevation = waterLevel - (waterLevel - baseElevation) * perlinSettings.continentalFlattenFactor;
     }
+
+    // 🌎 Global region + detail noise (controlados)
+    float globalRegionNoise = Noise.GetNoise(x * perlinSettings.globalFreq, y * perlinSettings.globalFreq);
+    baseElevation += globalRegionNoise * (perlinSettings.globalAmplitude * 0.5f);  // Reduzco magnitud
+    float regionalNoise = Noise.GetNoise(x + 2000, y + 2000) * 5f;  // Reduzco a 5
+    baseElevation += regionalNoise;
+    float detailNoise = Noise.GetNoise(x + 4000, y + 4000) * 1f;  // Reduzco a 1
+    baseElevation += detailNoise;
+
+    // 🏔 Montañas (FractalPerlin) solo sobre umbral
+   if (baseElevation > waterLevel + 8f)
+{
+    float mountainNoise = PerlinUtility.FractalPerlin(
+        new HexCoordinates(x, y),
+        perlinSettings.mountainFreq,  // Control desde inspector
+        5, 2.0f, 0.5f,
+        perlinSettings.seed + 5555);
+    float mountainHeight = Mathf.Lerp(0, perlinSettings.mountainAmplitude, mountainNoise);
+    baseElevation += mountainHeight * ((baseElevation - (waterLevel + 5f)) / 40f);
+}
+
+    // 🏔 Picos (RidgeNoise) solo sobre umbral alto y progresivo
+    if (baseElevation > waterLevel + 15f)
+    {
+        float ridgeNoise = PerlinUtility.RidgePerlin(new HexCoordinates(x, y), 0.1f, perlinSettings.seed);
+        if (ridgeNoise > 0.5f)
+        {
+            float ridgeEffect = (ridgeNoise - 0.5f) / 0.5f * 5f;  // Pico moderado
+            baseElevation += ridgeEffect * ((baseElevation - (waterLevel + 15f)) / 15f);  // Transición gradual
+        }
+    }
+
+    // 🌊 Ríos y cañones (ruidos suaves)
+    float riverNoise = 1f - Noise.GetNoise(x + 6000, y + 6000);
+    baseElevation -= riverNoise * (perlinSettings.riverDepth * 0.2f);  // Suavizado
+    float canyonNoise = 1f - PerlinUtility.FractalPerlin(
+        new HexCoordinates(x, y),
+        0.02f, 4, 2.0f, 0.5f,
+        perlinSettings.seed + 9999);
+    float canyonDepth = Mathf.Lerp(0, 10f, canyonNoise);  // Suavizado
+    baseElevation -= canyonDepth;
+
+    baseElevation += Random.Range(-0.01f, 0.01f);  // Variabilidad mínima
+
+    return baseElevation;
+}
+
+
 
 
     public float CalculateSlopeMagnitude(int x, int y, float epsilon, int mapWidth, int mapHeight)
@@ -317,58 +347,101 @@ public class WorldMapManager : MonoBehaviour
 
 
     public static bool IsWater(TerrainType type) =>
-        type == TerrainType.Ocean || type == TerrainType.CoastalWater;
+        type == TerrainType.Ocean || type == TerrainType.CoastalWater ;
 
     private TerrainType DetermineTerrainType(HexData hex)
+{
+    float elevation = hex.elevation;
+    float slope = hex.slope;
+    int x = hex.coordinates.Q;
+    int y = hex.coordinates.R;
+
+    float waterLevel = WorldMapManager.GlobalWaterLevel;
+
+
+        if (elevation < waterLevel - 5f) return TerrainType.Ocean;
+        if (elevation >= waterLevel - 5f && elevation < waterLevel) return TerrainType.CoastalWater;
+
+if (elevation >= waterLevel && elevation < waterLevel + 3f)
+{
+    if (slope < 2.2f)  // Ajusta pendiente para más SandyBeach
     {
-        float elevation = hex.elevation;
-        float slope = hex.slope;
-        int x = hex.coordinates.Q;
-        int y = hex.coordinates.R;
+        float pseudoRandom = PerlinUtility.Perlin(
+            new HexCoordinates(x + 10000, y + 10000), 0.1f, 9999, mapWidth, mapHeight);
+        if (pseudoRandom < 0.99f)
+            return TerrainType.SandyBeach;
+        else
+            return TerrainType.RockyBeach;
+    }
+    else
+    {
+        return TerrainType.RockyBeach;
+    }
+}
 
-        if (elevation < -10f) return TerrainType.Ocean;
-        if (elevation < 12f) return TerrainType.CoastalWater;
 
-        float valleyNoise = Noise.GetNoise(x + 8000, y + 8000);
-        if (valleyNoise > 0.6f && elevation >= 14f && elevation < 50f)
-            return TerrainType.Valley;
+    // 🌄 Valles
+    float valleyNoise = Noise.GetNoise(x + 8000, y + 8000);
+    if (valleyNoise > 0.3f && elevation >= waterLevel + 3f && elevation < waterLevel + 50f)
+        return TerrainType.Valley;
 
-        if (elevation >= 11f && elevation < 13f)
+    // 🌿 Tierra firme (ajustada al nuevo CalculateElevation)
+    if (elevation >= waterLevel + 3f && elevation < waterLevel + 10f) return TerrainType.Plains;
+    if (elevation >= waterLevel + 10f && elevation < waterLevel + 16f) return TerrainType.LowHills;
+    if (elevation >= waterLevel + 16f && elevation < waterLevel + 23f) return TerrainType.Hills;
+    if (elevation >= waterLevel + 23f && elevation < waterLevel + 28f) return TerrainType.Plateau;
+    if (elevation >= waterLevel + 30f) return TerrainType.Mountain;
+
+    // 🌄 Alternativa fallback
+    if (elevation >= -1f && elevation < 50f && slope >= 0.01f && slope < 0.31f)
+        return TerrainType.Valley;
+
+    return TerrainType.Plains;
+}
+
+
+
+public Texture2D GenerateMinimapLightweight(int resolution)
+{
+    Debug.Log("🗺 Generando minimapa lightweight...");
+    Texture2D minimapTexture = new Texture2D(resolution, resolution);
+    minimapTexture.filterMode = FilterMode.Point;
+
+    float scaleX = (float)mapWidth / resolution;
+    float scaleY = (float)mapHeight / resolution;
+
+    for (int y = 0; y < resolution; y++)
+    {
+        for (int x = 0; x < resolution; x++)
         {
-            if (slope < 0.2f)  // Menos restrictivo, pendiente más suave
-            {
-                // Aumentar probabilidad de SandyBeach al 98%
-                float pseudoRandom = PerlinUtility.Perlin(new HexCoordinates(hex.coordinates.Q + 10000, hex.coordinates.R + 10000), 0.1f, 9999, mapWidth, mapHeight);
-                if (pseudoRandom < 0.98f)
-                    return TerrainType.SandyBeach;
-                else
-                    return TerrainType.RockyBeach;
-            }
-            else
-            {
-                // Opcional: Mantener zonas de mayor pendiente como SandyBeach también
-                // return TerrainType.SandyBeach;  // O puedes decidir Rocky si quieres
-            }
+            int worldX = Mathf.FloorToInt(x * scaleX);
+            int worldY = Mathf.FloorToInt(y * scaleY);
+
+            float elevation = CalculateElevation(worldX, worldY, mapWidth, mapHeight);
+            Color color = chunkMapConfig.GetColorFor(DetermineTerrainTypeSimple(elevation));
+
+            minimapTexture.SetPixel(x, y, color);
         }
-
-
-        if (elevation >= 13f && elevation < 22f) return TerrainType.Plains;            // Plains extendido
-        if (elevation >= 22f && elevation < 24f) return TerrainType.LowHills;         // Nuevo rango intermedio
-        if (elevation >= 24f && elevation < 26f) return TerrainType.Hills;           // Hills
-        if (elevation >= 26f && elevation < 30f) return TerrainType.Plateau;         // Plateau extendido
-        if (elevation >= 30f) return TerrainType.Mountain;                           // Mountain más amplio
-
-        if (elevation >= -1f && elevation < 40f && slope >= 0.01f && slope < 0.31f) return TerrainType.Valley;
-
-        return TerrainType.Plains;  // Fallback solo si no coincide
     }
 
+    minimapTexture.Apply();
+    return minimapTexture;
+}
+
+private TerrainType DetermineTerrainTypeSimple(float elevation)
+{
+    if (elevation < -10f) return TerrainType.Ocean;
+    if (elevation < 12f) return TerrainType.CoastalWater;
+    if (elevation < 13f) return TerrainType.SandyBeach;
+    if (elevation < 22f) return TerrainType.Plains;
+    if (elevation < 26f) return TerrainType.Hills;
+    if (elevation < 30f) return TerrainType.Plateau;
+    return TerrainType.Mountain;
+}
 
 
 
-
-
-
+/*
 
    public Texture2D GenerateMinimapTexture(int resolution)
 {
@@ -377,8 +450,8 @@ public class WorldMapManager : MonoBehaviour
     Texture2D minimapTexture = new Texture2D(resolution, resolution);
     minimapTexture.filterMode = FilterMode.Point;
 
-    int minQ = 0, maxQ = mapWidth;
-    int minR = 0, maxR = mapHeight;
+    int minQ = -mapWidth / 2, maxQ = mapWidth / 2;
+int minR = -mapHeight / 2, maxR = mapHeight / 2;
 
     float scaleQ = (float)resolution / (maxQ - minQ);
     float scaleR = (float)resolution / (maxR - minR);
@@ -408,28 +481,52 @@ public class WorldMapManager : MonoBehaviour
     return minimapTexture;
 }
 
+*/
 
 
-private Color GetColorForHex(HexData hex)
-{
-    if (hex.isRiver) return Color.blue;
-    if (hex.isLake) return new Color(0, 0.4f, 1f);
-
-    return hex.terrainType switch
+    private Color GetColorForHex(HexData hex)
     {
-        TerrainType.Ocean => new Color(0, 0.5f, 1f),
-        TerrainType.CoastalWater => new Color(0.2f, 0.6f, 1f),
-        TerrainType.SandyBeach => new Color(1f, 0.9f, 0.6f),
-        TerrainType.RockyBeach => new Color(0.8f, 0.7f, 0.5f),
-        TerrainType.Plains => Color.green,
-        TerrainType.LowHills => new Color(0.5f, 0.8f, 0.4f),
-        TerrainType.Hills => new Color(0.4f, 0.7f, 0.3f),
-        TerrainType.Valley => new Color(0.6f, 0.8f, 0.3f),
-        TerrainType.Mountain => Color.gray,
-        TerrainType.Plateau => new Color(0.7f, 0.5f, 0.3f),
-        TerrainType.Peak => Color.white,
-        _ => Color.yellow,
-    };
+        if (hex.isRiver) return Color.blue;
+        if (hex.isLake) return new Color(0, 0.4f, 1f);
+
+        return hex.terrainType switch
+        {
+            TerrainType.Ocean => new Color(0, 0.5f, 1f),
+            TerrainType.CoastalWater => new Color(0.2f, 0.6f, 1f),
+            TerrainType.SandyBeach => new Color(1f, 0.9f, 0.6f),
+            TerrainType.RockyBeach => new Color(0.8f, 0.7f, 0.5f),
+            TerrainType.Plains => Color.green,
+            TerrainType.LowHills => new Color(0.5f, 0.8f, 0.4f),
+            TerrainType.Hills => new Color(0.4f, 0.7f, 0.3f),
+            TerrainType.Valley => new Color(0.6f, 0.8f, 0.3f),
+            TerrainType.Mountain => Color.gray,
+            TerrainType.Plateau => new Color(0.7f, 0.5f, 0.3f),
+            TerrainType.Peak => Color.white,
+            _ => Color.yellow,
+        };
+    }
+
+  private void AssignWaterFeatures(HexData hex)
+{
+    float waterLevel = GlobalWaterLevel;
+
+    // Si la elevación está justo debajo del nivel del agua y con poca pendiente, podría ser lago
+    if (hex.elevation < waterLevel - 0.5f && hex.slope < 0.2f && hex.moisture > 0.5f)
+    {
+        hex.isLake = true;
+        hex.isRiver = false;
+    }
+    // Si tiene pendiente moderada y humedad alta, podría ser río
+    else if (hex.slope > 0.1f && hex.slope < 0.5f && hex.moisture > 0.4f)
+    {
+        hex.isRiver = true;
+        hex.isLake = false;
+    }
+    else
+    {
+        hex.isRiver = false;
+        hex.isLake = false;
+    }
 }
 
 

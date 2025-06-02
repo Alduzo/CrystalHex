@@ -926,8 +926,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   perlinSettings: {fileID: 977198607}
-  chunkMapConfig: {fileID: 11400000, guid: 2f1535cfa268949eda6d10a7dafd8437, type: 2}
-  minimapResolution: 256
+  chunkMapConfig: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
+  waterTilePrefab: {fileID: 4543966592097017807, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+  minimapResolution: 128
   mapWidth: 500
   mapHeight: 500
 --- !u!4 &489991623
@@ -2163,20 +2164,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce752a9ee35644a70ae0f9028e419afd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  globalFreq: 0.005
-  globalAmplitude: 150
-  continentFreq: 0.1
-  continentalFlattenFactor: 0.034
-  baseFreq: 0.07
-  baseOffset: 22
-  regionalNoise: 10
-  baseAmplitude: 20
+  globalFreq: 0.065
+  globalAmplitude: 20
+  continentFreq: 0.805
+  continentalFlattenFactor: 5
+  baseFreq: 0.075
+  baseOffset: 11
+  regionalNoise: 12
+  baseAmplitude: 17
   octaves: 6
   lacunarity: 2.2
-  persistence: 0.45
-  ridgeFreq: 3
-  ridgeAmplitude: 30
-  mountainThreshold: 40
+  persistence: 1.1
+  mountainFreq: 0.0005
+  mountainAmplitude: 120
+  ridgeFreq: 0.05
+  ridgeAmplitude: 40
+  mountainThreshold: 33
   riverFreq: 0.15
   riverDepth: 20
   seed: 1
@@ -2674,7 +2677,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   minimapImage: {fileID: 1792519013}
   playerMarker: {fileID: 8322096345059794110, guid: 4faf03ae07911498b97aae80e68de860, type: 3}
-  minimapResolution: 512
+  minimapResolution: 256
   zoomSpeed: 0.1
   globeThreshold: 40
 --- !u!1 &1198349185
@@ -2707,7 +2710,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
-  elevationScale: 0.5
+  elevationScale: 1
 --- !u!4 &1198349187
 Transform:
   m_ObjectHideFlags: 0
@@ -4899,6 +4902,63 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4550e3e2896144cda8127140a05d88a5, type: 3}
+--- !u!1001 &3351192656523864528
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4543966592097017807, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_Name
+      value: OceanPlane
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 13.358152
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -7.457972
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 11.273298
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4724599776612473277, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -4931,3 +4991,4 @@ SceneRoots:
   - {fileID: 977198606}
   - {fileID: 489991623}
   - {fileID: 1330707461}
+  - {fileID: 3351192656523864528}

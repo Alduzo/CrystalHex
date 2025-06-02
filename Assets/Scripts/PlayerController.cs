@@ -3,6 +3,9 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
+    public ChunkManager chunkManager;  // Asignar desde el inspector
+    private Vector2Int lastChunkCoord;
+
     public float moveCooldown = 0.2f;
     private float lastMoveTime;
 
@@ -47,15 +50,15 @@ public class PlayerController : MonoBehaviour
         lastMoveTime = Time.time;
     }
 
-    void UpdateChunkLoading(bool force = false)
-    {
-        Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(currentCoordinates);
+void UpdateChunkLoading(bool force = false)
+{
+    Vector2Int chunkCoord = ChunkGenerator.GetChunkCoordFromWorldPos(transform.position);
 
-        if (force || chunkCoord != currentChunkCoord)
-        {
-            currentChunkCoord = chunkCoord;
-            ChunkManager.Instance.UpdateChunks(chunkCoord);
-        }
+    if (force || chunkCoord != currentChunkCoord)
+    {
+        currentChunkCoord = chunkCoord;
+        ChunkManager.Instance.UpdateChunks(currentChunkCoord);
     }
+}
 }
 

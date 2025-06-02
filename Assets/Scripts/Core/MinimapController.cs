@@ -18,7 +18,8 @@ public class MinimapController : MonoBehaviour
     {
         worldMap = WorldMapManager.Instance;
         playerTransform = Camera.main.transform;
-            minimapImage.texture = worldMap.GenerateMinimapTexture(minimapResolution);
+        // Desactivado por rendimiento   minimapImage.texture = worldMap.GenerateMinimapTexture(minimapResolution);
+    minimapImage.texture = worldMap.GenerateMinimapLightweight(minimapResolution);
 
     }
 
@@ -32,8 +33,8 @@ public class MinimapController : MonoBehaviour
     private void HandleZoom()
     {
         float zoomDelta = 0f;
-        if (Input.GetKey(KeyCode.L)) zoomDelta = 1f;
-        if (Input.GetKey(KeyCode.O)) zoomDelta = -1f;
+        if (Input.GetKey(KeyCode.O)) zoomDelta = 1f;
+        if (Input.GetKey(KeyCode.L)) zoomDelta = -1f;
 
         if (zoomDelta != 0f)
         {
@@ -42,30 +43,26 @@ public class MinimapController : MonoBehaviour
         }
     }
 
-    private void UpdatePlayerMarker()
-    {
-        int resolution = minimapResolution;
-        int minQ = int.MaxValue, maxQ = int.MinValue;
-        int minR = int.MaxValue, maxR = int.MinValue;
-        foreach (var hex in worldMap.GetAllHexes())
-        {
-            minQ = Mathf.Min(minQ, hex.coordinates.Q);
-            maxQ = Mathf.Max(maxQ, hex.coordinates.Q);
-            minR = Mathf.Min(minR, hex.coordinates.R);
-            maxR = Mathf.Max(maxR, hex.coordinates.R);
-        }
+  private void UpdatePlayerMarker()
+{
+    int resolution = minimapResolution;
+    int minQ = -worldMap.mapWidth / 2;
+    int maxQ = worldMap.mapWidth / 2;
+    int minR = -worldMap.mapHeight / 2;
+    int maxR = worldMap.mapHeight / 2;
 
-        float scaleQ = (float)resolution / (maxQ - minQ + 1);
-        float scaleR = (float)resolution / (maxR - minR + 1);
+    float scaleQ = (float)resolution / (maxQ - minQ);
+    float scaleR = (float)resolution / (maxR - minR);
 
-        HexCoordinates playerCoord = HexCoordinates.FromWorldPosition(playerTransform.position, HexRenderer.SharedOuterRadius);
-        int pixelX = Mathf.RoundToInt((playerCoord.Q - minQ) * scaleQ);
-        int pixelY = Mathf.RoundToInt((playerCoord.R - minR) * scaleR);
+    HexCoordinates playerCoord = HexCoordinates.FromWorldPosition(playerTransform.position, HexRenderer.SharedOuterRadius);
+    int pixelX = Mathf.RoundToInt((playerCoord.Q - minQ) * scaleQ);
+    int pixelY = Mathf.RoundToInt((playerCoord.R - minR) * scaleR);
 
-        RectTransform rt = minimapImage.rectTransform;
-        Vector2 markerPos = new Vector2(pixelX * rt.rect.width / resolution, pixelY * rt.rect.height / resolution);
-        playerMarker.anchoredPosition = markerPos;
-    }
+    RectTransform rt = minimapImage.rectTransform;
+    Vector2 markerPos = new Vector2(pixelX * rt.rect.width / resolution, pixelY * rt.rect.height / resolution);
+    playerMarker.anchoredPosition = markerPos;
+}
+
 
     private void HandleExpansion()
     {
