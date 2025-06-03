@@ -14,148 +14,131 @@ public static int ChunkSize { get; set; }
     Debug.Log($"✅ Chunk generado: {parent.name} | Posición: {parent.transform.position}");
     Chunk chunkComponent = parent.AddComponent<Chunk>();
 
+    // 🔥 Cargar ChunkMapGameConfig solo una vez por chunk
+    var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
+    if (config == null)
+    {
+        Debug.LogError("⚠️ No se encontró ChunkMapGameConfig en Resources.");
+        return parent;  // Detenemos si no existe
+    }
 
     try
+    {
+        for (int dx = 0; dx < chunkSize; dx++)
         {
-            for (int dx = 0; dx < chunkSize; dx++)
+            for (int dy = 0; dy < chunkSize; dy++)
             {
-                for (int dy = 0; dy < chunkSize; dy++)
+                int globalQ = chunkCoord.x * chunkSize + dx;
+                int globalR = chunkCoord.y * chunkSize + dy;
+
+                if (globalQ < -WorldMapManager.MaxMapWidth / 2 || globalQ >= WorldMapManager.MaxMapWidth / 2 ||
+                    globalR < -WorldMapManager.MaxMapHeight / 2 || globalR >= WorldMapManager.MaxMapHeight / 2)
                 {
-                    int globalQ = chunkCoord.x * chunkSize + dx;
-                    int globalR = chunkCoord.y * chunkSize + dy;
+                    continue;
+                }
 
-                    if (globalQ < -WorldMapManager.MaxMapWidth / 2 || globalQ >= WorldMapManager.MaxMapWidth / 2 ||
-            globalR < -WorldMapManager.MaxMapHeight / 2 || globalR >= WorldMapManager.MaxMapHeight / 2)
+                HexCoordinates hexCoord = new HexCoordinates(globalQ, globalR);
+                Vector3 worldPos = HexCoordinates.ToWorldPosition(hexCoord, HexRenderer.SharedOuterRadius);
 
+                var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
+                if (hexData == null)
+                {
+                    Debug.LogWarning($"⚠️ No se pudo generar HexData para {hexCoord}. Se omite.");
+                    continue;
+                }
+
+
+                GameObject hex = Object.Instantiate(hexPrefab, worldPos, Quaternion.identity, parent.transform);
+                hex.name = $"Hex_{globalQ}_{globalR}";
+                hex.layer = LayerMask.NameToLayer("Terrain");
+                SetLayerRecursively(hex, LayerMask.NameToLayer("Terrain"));
+
+                chunkComponent.hexDataList.Add(hexData);
+
+                var renderer = hex.GetComponent<HexRenderer>();
+                if (renderer != null)
+                {
+                    float elevationHeight = hexData.elevation * config.elevationScale;
+                    renderer.SetHeight(elevationHeight);
+                    Material mat = config.GetMaterialFor(hexData.terrainType);
+                    if (mat != null)
+                        renderer.GetComponent<MeshRenderer>().material = mat;
+
+                    renderer.SetVisualByHex(hexData);
+
+                    // 💧 Lógica de agua
+                    if (WorldMapManager.IsWater(hexData.terrainType) || hexData.isRiver || hexData.isLake)
                     {
-                        continue;  // Limita a las dimensiones del mapa
-                    }
+                        Vector3 waterPos = HexCoordinates.ToWorldPosition(hexCoord, HexRenderer.SharedOuterRadius);
+                        var waterPrefab = WorldMapManager.Instance.waterTilePrefab;
 
-
-                    HexCoordinates hexCoord = new HexCoordinates(globalQ, globalR);
-                    Vector3 worldPos = HexCoordinates.ToWorldPosition(hexCoord, HexRenderer.SharedOuterRadius);
-
-                    GameObject hex = Object.Instantiate(hexPrefab, worldPos, Quaternion.identity, parent.transform);
-                    hex.name = $"Hex_{globalQ}_{globalR}";
-                    hex.layer = LayerMask.NameToLayer("Terrain");
-                    SetLayerRecursively(hex, LayerMask.NameToLayer("Terrain"));
-
-                    HexBehavior behavior = hex.GetComponent<HexBehavior>();
-                    if (behavior != null)
-                    {
-                        behavior.coordinates = hexCoord;
-
-                        var hexData = WorldMapManager.Instance.GetOrGenerateHex(hexCoord);
-                        chunkComponent.hexDataList.Add(hexData); 
-
-                        var renderer = hex.GetComponent<HexRenderer>();
-
-                        if (renderer != null)
+                        if (waterPrefab != null)
                         {
-                            var config = Resources.Load<ChunkMapGameConfig>("ChunkMapGameConfig");
-                            if (config != null)
+                            float topY = hex.transform.position.y + renderer.columnHeight * renderer.heightScale;
+                            float targetWaterLevel = Mathf.Min(WorldMapManager.GlobalWaterLevel, topY + 0.1f);
+                            float waterHeight = targetWaterLevel - topY;
+
+                            if (WorldMapManager.IsWater(hexData.terrainType) && waterHeight > 0)
                             {
-                                float elevationHeight = hexData.elevation * config.elevationScale;
-                                renderer.SetHeight(elevationHeight);
-
-                                Material mat = config.GetMaterialFor(hexData.terrainType);
-                                if (mat != null)
-                                    renderer.GetComponent<MeshRenderer>().material = mat;
-
+                                Vector3 scale = new Vector3(HexRenderer.SharedOuterRadius * 2f, waterHeight / 2f, HexRenderer.SharedOuterRadius * 2f);
+                                Vector3 position = new Vector3(waterPos.x, topY + waterHeight / 2f, waterPos.z);
+                                GameObject waterTile = Object.Instantiate(waterPrefab, position, Quaternion.Euler(90, 0, 0), parent.transform);
+                                waterTile.name = $"OceanWater_{hexCoord.Q}_{hexCoord.R}";
+                                waterTile.transform.localScale = scale;
                             }
-
-                            else
+                            else if (hexData.isLake)
                             {
-                                //  Debug.LogWarning("⚠️ ChunkMapGameConfig not found in Resources.");
+                                waterPos.y = topY + 0.1f;
+                                GameObject waterTile = Object.Instantiate(waterPrefab, waterPos, Quaternion.Euler(90, 0, 0), parent.transform);
+                                waterTile.name = $"Lake_{hexCoord.Q}_{hexCoord.R}";
+                                waterTile.transform.localScale = new Vector3(HexRenderer.SharedOuterRadius * 2f, 1f, HexRenderer.SharedOuterRadius * 2f);
                             }
-                            renderer.SetVisualByHex(hexData);
-
-                             if (WorldMapManager.IsWater(hexData.terrainType) || hexData.isRiver || hexData.isLake)
-{
-    Vector3 waterPos = HexCoordinates.ToWorldPosition(hexCoord, HexRenderer.SharedOuterRadius);
-    var waterPrefab = WorldMapManager.Instance.waterTilePrefab;
-
-    if (waterPrefab != null)
-    {
-        HexRenderer hexRenderer = hex.GetComponent<HexRenderer>();
-        float topY = hexRenderer.transform.position.y + hexRenderer.columnHeight * hexRenderer.heightScale;
-
-        Debug.Log($"Hex ({hexCoord.Q}, {hexCoord.R}) - Elev: {hexData.elevation}, ColumnHeight: {hexRenderer.columnHeight}, HeightScale: {hexRenderer.heightScale}, TopY: {topY}, TerrainType: {hexData.terrainType}, isRiver: {hexData.isRiver}, isLake: {hexData.isLake}");
-
-       if (WorldMapManager.IsWater(hexData.terrainType))
-{
-topY = hexRenderer.transform.position.y + hexRenderer.columnHeight * hexRenderer.heightScale;
-
-    // Calcular minWaterHeight del terreno
-    float targetWaterLevel = Mathf.Min(WorldMapManager.GlobalWaterLevel, topY + 0.1f);  // Si quieres usar GlobalWaterLevel ajustado
-    float waterHeight = targetWaterLevel - topY;
-
-    if (waterHeight > 0)
-    {
-        Vector3 scale = new Vector3(HexRenderer.SharedOuterRadius * 2f, waterHeight / 2f, HexRenderer.SharedOuterRadius * 2f);
-        Vector3 position = new Vector3(waterPos.x, topY + waterHeight / 2f, waterPos.z);
-        GameObject waterTile = Object.Instantiate(waterPrefab, position, Quaternion.Euler(90, 0, 0), parent.transform);
-        waterTile.name = $"OceanWater_{hexCoord.Q}_{hexCoord.R}";
-        waterTile.transform.localScale = scale;
-    }
-}
-
-        else if (hexData.isLake)
-        {
-            waterPos.y = topY + 0.1f;
-            GameObject waterTile = Object.Instantiate(waterPrefab, waterPos, Quaternion.Euler(90, 0, 0), parent.transform);
-            waterTile.name = $"Lake_{hexCoord.Q}_{hexCoord.R}";
-            waterTile.transform.localScale = new Vector3(HexRenderer.SharedOuterRadius * 2f, 1f, HexRenderer.SharedOuterRadius * 2f);
-        }
-        else if (hexData.isRiver)
-        {
-            waterPos.y = topY + 0.05f;
-            GameObject waterTile = Object.Instantiate(waterPrefab, waterPos, Quaternion.Euler(90, 0, 0), parent.transform);
-            waterTile.name = $"River_{hexCoord.Q}_{hexCoord.R}";
-            waterTile.transform.localScale = new Vector3(HexRenderer.SharedOuterRadius * 2f, 1f, HexRenderer.SharedOuterRadius * 2f);
-        }
-    }
-}
-
-
-
-                        }
-
-                        // Asignar vecinos con la nueva lógica proactiva
-                        WorldMapManager.Instance.RefreshNeighborsFor(hexData);
-
-                        var existingCollider = parent.GetComponent<MeshCollider>();
-                        if (existingCollider != null)
-                        {
-                            Object.Destroy(existingCollider);
-                            Debug.Log($"🧹 Eliminado MeshCollider sobrante de {parent.name}");
-                        }
-
-                        GameObject testPrefab = Resources.Load<GameObject>("TerrainObjects/Leaf_Oak");
-                        if (testPrefab == null)
-                        {
-                            Debug.LogWarning("⚠️ No se encontró el prefab en Resources/TerrainObjects/Leaf_Oak");
-                        }
-                        else if (Random.value < 0.05f)
-                        {
-                            CoroutineDispatcher.Instance?.RunCoroutine(DelayedPlaceFeature(behavior, testPrefab));
+                            else if (hexData.isRiver)
+                            {
+                                waterPos.y = topY + 0.05f;
+                                GameObject waterTile = Object.Instantiate(waterPrefab, waterPos, Quaternion.Euler(90, 0, 0), parent.transform);
+                                waterTile.name = $"River_{hexCoord.Q}_{hexCoord.R}";
+                                waterTile.transform.localScale = new Vector3(HexRenderer.SharedOuterRadius * 2f, 1f, HexRenderer.SharedOuterRadius * 2f);
+                            }
                         }
                     }
-                    else
-                    {
-                        Debug.LogError($"❌ Hex instanciado sin HexBehavior: {hex.name}");
-                    }
+                }
+
+                HexBehavior behavior = hex.GetComponent<HexBehavior>();
+                if (behavior != null)
+                {
+                    behavior.coordinates = hexCoord;
+                }
+
+                // ⚠️ Comentar temporalmente RefreshNeighborsFor
+                // WorldMapManager.Instance.RefreshNeighborsFor(hexData);
+
+                var existingCollider = parent.GetComponent<MeshCollider>();
+                if (existingCollider != null)
+                {
+                    Object.Destroy(existingCollider);
+                    Debug.Log($"🧹 Eliminado MeshCollider sobrante de {parent.name}");
+                }
+
+                GameObject testPrefab = Resources.Load<GameObject>("TerrainObjects/Leaf_Oak");
+                if (testPrefab == null)
+                {
+                    Debug.LogWarning("⚠️ No se encontró el prefab en Resources/TerrainObjects/Leaf_Oak");
+                }
+                else if (Random.value < 0.05f)
+                {
+                    CoroutineDispatcher.Instance?.RunCoroutine(DelayedPlaceFeature(behavior, testPrefab));
                 }
             }
         }
-        catch (System.Exception ex)
-        {
-            Debug.LogError($"❌ Error generando chunk {chunkCoord}: {ex}");
-        }
+    }
+    catch (System.Exception ex)
+    {
+        Debug.LogError($"❌ Error generando chunk {chunkCoord}: {ex}");
+    }
 
     return parent;
 }
-
 
 
     public static void AssignNeighbors(GameObject chunkRoot)

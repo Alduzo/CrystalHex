@@ -41,6 +41,12 @@ public class HexBehavior : MonoBehaviour
     [Header("Crystal Growth")]
     public float growthMultiplier = 1f;
 
+public void Initialize(HexData data)
+{
+    this.coordinates = data.coordinates;
+}
+
+
     public static Dictionary<CrystalType, PlayerType> crystalToPlayer = new()
     {
         { CrystalType.Red, PlayerType.Red },

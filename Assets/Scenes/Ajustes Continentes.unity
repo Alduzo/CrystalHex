@@ -928,6 +928,7 @@ MonoBehaviour:
   perlinSettings: {fileID: 977198607}
   chunkMapConfig: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
   waterTilePrefab: {fileID: 4543966592097017807, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
+  hexTilePrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
   minimapResolution: 128
   mapWidth: 500
   mapHeight: 500

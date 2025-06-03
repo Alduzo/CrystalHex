@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Archivo de salida
-output_file="250531_Water_Visualization.md"
+output_file="250602_assignneigbbors.md"
 
 # Limpia archivo si ya existe
 echo "# HexMap – Código fuente consolidado" > "$output_file"

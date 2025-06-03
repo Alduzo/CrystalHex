@@ -18,7 +18,10 @@ public class WorldMapManager : MonoBehaviour
 
     public ChunkMapGameConfig chunkMapConfig;
     public GameObject waterTilePrefab;  // Asignar en el inspector
+
+     public GameObject hexTilePrefab;
     public const float GlobalWaterLevel = 16f;
+
 
 
 
@@ -84,6 +87,74 @@ public class WorldMapManager : MonoBehaviour
         Debug.Log("🌍 FastNoiseLite inicializado con semilla y parámetros.");
     }
 
+private void GenerateHexDataGrid()
+{
+    Debug.Log("🔄 Generando HexData grid...");
+    int minQ = -mapWidth / 2;
+int maxQ = mapWidth / 2;
+int minR = -mapHeight / 2;
+int maxR = mapHeight / 2;
+
+for (int q = minQ; q < maxQ; q++)
+{
+    for (int r = minR; r < maxR; r++)
+
+        {
+HexCoordinates coord = new HexCoordinates(q, r);
+            if (!worldMap.ContainsKey(coord))
+            {
+                HexData data = GetOrGenerateHex(coord);  // Ya asigna datos base
+                worldMap[coord] = data;
+            }
+        }
+    }
+    Debug.Log($"✅ HexData grid generado con {worldMap.Count} entradas.");
+}
+
+private void AssignNeighborsGlobal()
+{
+    Debug.Log("🔄 Asignando vecinos globalmente...");
+    foreach (var hex in worldMap.Values)
+    {
+        hex.neighborRefs.Clear();
+        foreach (var coord in hex.neighborCoords)
+        {
+            if (worldMap.TryGetValue(coord, out var neighbor))
+                hex.neighborRefs.Add(neighbor);
+        }
+        hex.neighborsAssigned = true;
+    }
+    Debug.Log("✅ Vecinos asignados a todos los HexData.");
+}
+
+private void InstantiateHexTiles()
+{
+    Debug.Log("🖼 Instanciando visuales HexTile...");
+    foreach (var data in worldMap.Values)
+    {
+        Vector2Int chunkCoord = ChunkManager.WorldToChunkCoord(data.coordinates);
+        if (ChunkManager.Instance.loadedChunks.TryGetValue(chunkCoord, out var chunk))
+        {
+            var hexGO = Instantiate(hexTilePrefab, chunk.transform);
+            hexGO.transform.position = HexCoordinates.ToWorldPosition(data.coordinates, HexRenderer.SharedOuterRadius);
+            var behavior = hexGO.GetComponent<HexBehavior>();
+            if (behavior != null)
+            {
+                behavior.Initialize(data);
+            }
+            else
+            {
+                Debug.LogWarning($"⚠️ Prefab para {data.coordinates} no tiene HexBehavior.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ Chunk no encontrado para {data.coordinates}. Skipping tile.");
+        }
+    }
+    Debug.Log("✅ Visuales instanciados.");
+}
+
 
     public void InitializeWorld()
     {
@@ -99,11 +170,11 @@ public class WorldMapManager : MonoBehaviour
         ResetWorld();
 
         Debug.Log("🌍 Mundo regenerado completamente.");
-        if (ChunkManager.Instance != null)
-        {
-            ChunkManager.Instance.InitializeChunks(2);  // Cambia el rango según quieras
-            Debug.Log("🌍 Mundo inicial regenerado con chunks.");
-        }
+ // GenerateHexDataGrid();
+//AssignNeighborsGlobal();
+//InstantiateHexTiles();
+
+Debug.Log("🌍 Mundo regenerado con flujo por fases.");
 
     }
 

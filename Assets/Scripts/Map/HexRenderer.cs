@@ -10,6 +10,7 @@ public class HexRenderer : MonoBehaviour
     [Header("Hex Settings")]
     public float innerRadius = 0.5f;
     public float columnHeight = 0f;
+   
 
     [Header("Visual")]
     public Material material;
@@ -175,34 +176,35 @@ public class HexRenderer : MonoBehaviour
 
     }
     
+    
 public void SetVisualByHex(HexData hexData)
-{
-    if (hexData.isRiver)
     {
-        // Asignar color azul para agua
-        topColor = Color.blue;
-        sideColor = new Color(0, 0, 0.5f);  // Lado más oscuro para agua
-    }
-    else
-    {
-        // Asignar color según terrainType o por defecto
-        switch (hexData.terrainType)
+        if (hexData.isRiver)
         {
-            case TerrainType.Plains:
-                topColor = Color.green; sideColor = Color.black;
-                break;
-            case TerrainType.Mountain:
-                topColor = Color.gray; sideColor = Color.black;
-                break;
-            // Agrega más casos según necesidad
-            default:
-                topColor = Color.magenta; sideColor = Color.black;
-                break;
+            // Asignar color azul para agua
+            topColor = Color.blue;
+            sideColor = new Color(0, 0, 0.5f);  // Lado más oscuro para agua
         }
-    }
+        else
+        {
+            // Asignar color según terrainType o por defecto
+            switch (hexData.terrainType)
+            {
+                case TerrainType.Plains:
+                    topColor = Color.green; sideColor = Color.black;
+                    break;
+                case TerrainType.Mountain:
+                    topColor = Color.gray; sideColor = Color.black;
+                    break;
+                // Agrega más casos según necesidad
+                default:
+                    topColor = Color.magenta; sideColor = Color.black;
+                    break;
+            }
+        }
 
-    BuildMesh();  // Actualiza el mesh con nuevos colores
-}
+        BuildMesh();  // Actualiza el mesh con nuevos colores
+    }
 
 
     
