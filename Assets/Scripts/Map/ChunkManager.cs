@@ -160,7 +160,7 @@ public class ChunkManager : MonoBehaviour
             var behaviors = chunk.GetComponentsInChildren<HexBehavior>();
             foreach (var behavior in behaviors)
             {
-                ChunkGenerator.AssignBehaviorNeighborsFromWorldMap(behavior);
+                ChunkGenerator.AssignNeighborsFor(behavior);
             }
         }
     }

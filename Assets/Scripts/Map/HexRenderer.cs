@@ -10,7 +10,7 @@ public class HexRenderer : MonoBehaviour
     [Header("Hex Settings")]
     public float innerRadius = 0.5f;
     public float columnHeight = 0f;
-   
+
 
     [Header("Visual")]
     public Material material;
@@ -88,7 +88,7 @@ public class HexRenderer : MonoBehaviour
         BuildMesh();
     }
 
-    
+
 
     void BuildMesh()
     {
@@ -159,7 +159,7 @@ public class HexRenderer : MonoBehaviour
         {
             _mr.sharedMaterial = material;
         }
-      //  Debug.Log($"{name} – Mesh vertices: {_mesh.vertexCount}, assigned to MeshCollider: {_mc.sharedMesh != null}");
+        //  Debug.Log($"{name} – Mesh vertices: {_mesh.vertexCount}, assigned to MeshCollider: {_mc.sharedMesh != null}");
 
     }
 
@@ -175,9 +175,9 @@ public class HexRenderer : MonoBehaviour
 
 
     }
-    
-    
-public void SetVisualByHex(HexData hexData)
+
+
+    public void SetVisualByHex(HexData hexData)
     {
         if (hexData.isRiver)
         {
@@ -206,6 +206,19 @@ public void SetVisualByHex(HexData hexData)
         BuildMesh();  // Actualiza el mesh con nuevos colores
     }
 
+public static float GetVisualTopYAt(HexCoordinates coord)
+{
+    Vector3 worldPos = HexCoordinates.ToWorldPosition(coord, HexRenderer.SharedOuterRadius);
+    Collider[] hits = Physics.OverlapSphere(worldPos, 1f);  // Radio ajustable según tamaño de tile
+    foreach (var hit in hits)
+    {
+        HexRenderer renderer = hit.GetComponentInParent<HexRenderer>();
+        if (renderer != null)
+            return renderer.VisualTopY;
+    }
+    return worldPos.y;  // O valor predeterminado
+}
 
-    
+
+
 }

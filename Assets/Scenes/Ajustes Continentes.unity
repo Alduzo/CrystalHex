@@ -645,7 +645,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hexPrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
-  chunkSize: 8
+  chunkSize: 5
   loadRadius: 2
   unloadRadius: 1
   player: {fileID: 0}
@@ -929,6 +929,7 @@ MonoBehaviour:
   chunkMapConfig: {fileID: 11400000, guid: cf3018f2f724a4c6eb162b0ed58f6fda, type: 2}
   waterTilePrefab: {fileID: 4543966592097017807, guid: 22c5c08807ad74f68b8f7d207363060c, type: 3}
   hexTilePrefab: {fileID: 2348203789960447035, guid: a1ff7fa85b1084055a6017eaba3162cb, type: 3}
+  maxElevation: 20
   minimapResolution: 128
   mapWidth: 500
   mapHeight: 500
@@ -2165,21 +2166,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce752a9ee35644a70ae0f9028e419afd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  globalFreq: 0.065
-  globalAmplitude: 20
-  continentFreq: 0.805
+  globalFreq: 0.055
+  globalAmplitude: 14
+  continentFreq: 0.694
   continentalFlattenFactor: 5
-  baseFreq: 0.075
-  baseOffset: 11
-  regionalNoise: 12
-  baseAmplitude: 17
+  baseFreq: 0.065
+  baseOffset: 12
+  regionalNoise: 16
+  baseAmplitude: 12
   octaves: 6
   lacunarity: 2.2
   persistence: 1.1
   mountainFreq: 0.0005
-  mountainAmplitude: 120
+  mountainAmplitude: 20
   ridgeFreq: 0.05
-  ridgeAmplitude: 40
+  ridgeAmplitude: 10
   mountainThreshold: 33
   riverFreq: 0.15
   riverDepth: 20
@@ -2498,6 +2499,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1792879877}
+  - {fileID: 1984040260}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!136 &1044141066
@@ -2566,7 +2568,7 @@ MonoBehaviour:
   heightOffset: 0
   maxAttempts: 3
   retryDelay: 0.1
-  placementDetectionRadius: 5
+  placementDetectionRadius: 0.5
 --- !u!143 &1044141070
 CharacterController:
   m_ObjectHideFlags: 0
@@ -2605,11 +2607,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
-  terrainLayer:
+  rotationSpeed: 5
+  groundCheckRadius: 0.5
+  groundLayer:
     serializedVersion: 2
-    m_Bits: 64
-  minHeightThreshold: 0.01
-  currentHex: {fileID: 0}
+    m_Bits: 0
+  footTransform: {fileID: 1984040260}
 --- !u!114 &1044141072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3922,13 +3925,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   stickMinZoom: -10
   stickMaxZoom: -15
-  swivelMinZoom: 0
+  swivelMinZoom: 15
   swivelMaxZoom: 75
   moveSpeedMinZoom: 5
   moveSpeedMaxZoom: 20
   rotationSpeed: 20
   yZoomSpeed: 10
-  yMinHeight: 3
+  yMinHeight: -10
   yMaxHeight: 120
   initialOffsetFromPlayer: {x: 0.81, y: 12, z: -8.57}
   lookAtHeightOffset: 8
@@ -4561,6 +4564,59 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1961955173}
   m_CullTransparentMesh: 1
+--- !u!1 &1984040259
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1984040260}
+  - component: {fileID: 1984040261}
+  m_Layer: 3
+  m_Name: FootCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1984040260
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1984040259}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1044141065}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &1984040261
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1984040259}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.25
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &2125363585
 GameObject:
   m_ObjectHideFlags: 0

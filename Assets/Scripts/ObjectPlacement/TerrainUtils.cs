@@ -12,39 +12,39 @@ public static class TerrainUtils
     /// <param name="hexRenderer">The HexRenderer of the target hex.</param>
     /// <param name="verticalOffset">Additional offset above the hex's visual top.</param>
     public static void SnapToHexTopFlat(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
-{
-    if (objectTransform == null)
     {
-        Debug.LogWarning("⚠️ SnapToHexTopFlat falló: objectTransform es null.");
-        return;
+        if (objectTransform == null)
+        {
+            Debug.LogWarning("⚠️ SnapToHexTopFlat falló: objectTransform es null.");
+            return;
+        }
+
+        if (hexRenderer == null)
+        {
+            Debug.LogWarning($"⚠️ SnapToHexTopFlat falló: hexRenderer es null para {objectTransform.name}.");
+            return;
+        }
+
+        Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
+        if (objectRenderer == null)
+        {
+            Debug.LogWarning($"❌ {objectTransform.name} no tiene Renderer hijo visible. No se puede alinear.");
+            return;
+        }
+
+        float objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
+        float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
+
+        Vector3 hexPos = hexRenderer.transform.position;
+
+        objectTransform.position = new Vector3(
+            hexPos.x,
+            targetY,
+            hexPos.z
+        );
+
+        Debug.Log($"📍 {objectTransform.name} alineado a ({hexPos.x:F2}, {targetY:F2}, {hexPos.z:F2}) sobre {hexRenderer.name} (VisualTopY={hexRenderer.VisualTopY:F3}, offset={verticalOffset:F3})");
     }
-
-    if (hexRenderer == null)
-    {
-        Debug.LogWarning($"⚠️ SnapToHexTopFlat falló: hexRenderer es null para {objectTransform.name}.");
-        return;
-    }
-
-    Renderer objectRenderer = objectTransform.GetComponentInChildren<Renderer>();
-    if (objectRenderer == null)
-    {
-        Debug.LogWarning($"❌ {objectTransform.name} no tiene Renderer hijo visible. No se puede alinear.");
-        return;
-    }
-
-    float objectBottomOffset = objectRenderer.bounds.center.y - objectRenderer.bounds.extents.y - objectTransform.position.y;
-    float targetY = hexRenderer.VisualTopY - objectBottomOffset + verticalOffset;
-
-    Vector3 hexPos = hexRenderer.transform.position;
-
-    objectTransform.position = new Vector3(
-        hexPos.x,
-        targetY,
-        hexPos.z
-    );
-
-    Debug.Log($"📍 {objectTransform.name} alineado a ({hexPos.x:F2}, {targetY:F2}, {hexPos.z:F2}) sobre {hexRenderer.name} (VisualTopY={hexRenderer.VisualTopY:F3}, offset={verticalOffset:F3})");
-}
 
 
 
@@ -77,33 +77,42 @@ public static class TerrainUtils
         Debug.Log($"📍 {objectTransform.name} colocado en Y={pos.y:F2} sobre {hexRenderer.name}.");
     }
 
-public static void SnapToHexCenterXYZ(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
-{
-    if (objectTransform == null || hexRenderer == null)
+    public static void SnapToHexCenterXYZ(Transform objectTransform, HexRenderer hexRenderer, float verticalOffset)
     {
-        Debug.LogWarning("⚠️ SnapToHexCenterXYZ falló: Transform o HexRenderer es null.");
-        return;
+        if (objectTransform == null || hexRenderer == null)
+        {
+            Debug.LogWarning("⚠️ SnapToHexCenterXYZ falló: Transform o HexRenderer es null.");
+            return;
+        }
+
+        Vector3 hexPos = hexRenderer.transform.position;
+        Vector3 newPos = new Vector3(hexPos.x, hexPos.y + verticalOffset, hexPos.z);
+        objectTransform.position = newPos;
+
+        Debug.Log($"📍 {objectTransform.name} colocado en ({newPos.x:F2}, {newPos.y:F2}, {newPos.z:F2}) sobre {hexRenderer.name}.");
     }
 
-    Vector3 hexPos = hexRenderer.transform.position;
-    Vector3 newPos = new Vector3(hexPos.x, hexPos.y + verticalOffset, hexPos.z);
-    objectTransform.position = newPos;
-
-    Debug.Log($"📍 {objectTransform.name} colocado en ({newPos.x:F2}, {newPos.y:F2}, {newPos.z:F2}) sobre {hexRenderer.name}.");
-}
-
-/// <summary>
-/// Devuelve la altura visual superior del hexágono, considerando su escala y altura base.
-/// </summary>
-public static float GetHexVisualTopY(HexRenderer hexRenderer, float verticalOffset = 0f)
-{
-    if (hexRenderer == null)
+    /// <summary>
+    /// Devuelve la altura visual superior del hexágono, considerando su escala y altura base.
+    /// </summary>
+    public static float GetHexVisualTopY(HexRenderer hexRenderer, float verticalOffset = 0f)
     {
-        Debug.LogWarning("⚠️ HexRenderer es null en GetHexVisualTopY.");
-        return 0f;
+        if (hexRenderer == null)
+        {
+            Debug.LogWarning("⚠️ HexRenderer es null en GetHexVisualTopY.");
+            return 0f;
+        }
+
+        return hexRenderer.transform.position.y + hexRenderer.columnHeight + verticalOffset;
     }
 
-    return hexRenderer.transform.position.y + hexRenderer.columnHeight * hexRenderer.heightScale + verticalOffset;
+public static HexRenderer GetHexBelow(Transform origin, float rayDistance, LayerMask terrainLayer)
+{
+    if (Physics.Raycast(origin.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, rayDistance, terrainLayer))
+    {
+        return hit.collider.GetComponentInParent<HexRenderer>();
+    }
+    return null;
 }
 
 

@@ -21,6 +21,7 @@ public class WorldMapManager : MonoBehaviour
 
      public GameObject hexTilePrefab;
     public const float GlobalWaterLevel = 16f;
+    public float maxElevation = 20f;
 
 
 
@@ -114,15 +115,17 @@ HexCoordinates coord = new HexCoordinates(q, r);
 private void AssignNeighborsGlobal()
 {
     Debug.Log("🔄 Asignando vecinos globalmente...");
-    foreach (var hex in worldMap.Values)
-    {
-        hex.neighborRefs.Clear();
-        foreach (var coord in hex.neighborCoords)
+        foreach (var hex in worldMap.Values)
         {
-            if (worldMap.TryGetValue(coord, out var neighbor))
-                hex.neighborRefs.Add(neighbor);
-        }
-        hex.neighborsAssigned = true;
+            hex.neighborRefs.Clear();
+            foreach (var coord in hex.neighborCoords)
+            {
+                if (worldMap.TryGetValue(coord, out var neighbor))
+                    hex.neighborRefs.Add(neighbor);
+            }
+            hex.neighborsAssigned = true;
+                Debug.Log($"🧩 Hex {hex.coordinates} asignado con {hex.neighborRefs.Count} vecinos. Elevación: {hex.elevation}, Terreno: {hex.terrainType}");
+
     }
     Debug.Log("✅ Vecinos asignados a todos los HexData.");
 }
@@ -170,8 +173,8 @@ private void InstantiateHexTiles()
         ResetWorld();
 
         Debug.Log("🌍 Mundo regenerado completamente.");
- // GenerateHexDataGrid();
-//AssignNeighborsGlobal();
+//GenerateHexDataGrid();
+// AssignNeighborsGlobal();
 //InstantiateHexTiles();
 
 Debug.Log("🌍 Mundo regenerado con flujo por fases.");
@@ -282,6 +285,8 @@ Debug.Log("🌍 Mundo regenerado con flujo por fases.");
                 hex.neighborRefs.Add(neighbor);
         }
         hex.neighborsAssigned = true;
+            Debug.Log($"🧩 Hex {hex.coordinates} (Ensure) asignado con {hex.neighborRefs.Count} vecinos.");
+
     }
 
     public void AssignNeighborsForChunk(List<HexData> chunkHexes)
@@ -303,6 +308,8 @@ Debug.Log("🌍 Mundo regenerado con flujo por fases.");
             }
         }
         hex.neighborsAssigned = true;
+            Debug.Log($"🔁 Hex {hex.coordinates} (Refresh) tiene {hex.neighborRefs.Count} vecinos actualizados.");
+
     }
 
 

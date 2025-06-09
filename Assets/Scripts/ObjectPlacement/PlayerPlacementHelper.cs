@@ -4,10 +4,10 @@ using System.Collections;
 public class PlayerPlacementHelper : MonoBehaviour
 {
     [SerializeField] private string terrainLayerName = "Terrain";
-    [SerializeField] private float heightOffset = 0.3f;
+    [SerializeField] private float heightOffset = 0.1f;
     [SerializeField] private int maxAttempts = 30;
     [SerializeField] private float retryDelay = 0.1f;
-    [SerializeField] private float placementDetectionRadius = 5.0f;
+    [SerializeField] private float placementDetectionRadius = .75f;
 
     private IEnumerator Start()
     {
@@ -32,30 +32,17 @@ public class PlayerPlacementHelper : MonoBehaviour
         Debug.LogWarning($"⚠️ {gameObject.name} no pudo colocarse sobre ningún Hex válido tras {maxAttempts} intentos.");
     }
 
-    public bool TryPlace()
+   public bool TryPlace()
+{
+    var hex = TerrainUtils.GetHexBelow(transform, 2f, LayerMask.GetMask(terrainLayerName));
+    if (hex != null)
     {
-        Debug.Log($"📌 {name} está intentando colocarse desde posición: {transform.position}");
-
-        Collider[] colliders = Physics.OverlapSphere(transform.position, placementDetectionRadius, LayerMask.GetMask(terrainLayerName));
-        Debug.Log($"🔎 {name}: {colliders.Length} colisionadores detectados en layer {terrainLayerName}");
-
-        foreach (var col in colliders)
-        {
-            Debug.Log($" - 🎯 Collider: {col.name}");
-
-            var hex = col.GetComponentInParent<HexRenderer>();
-            if (hex == null)
-            {
-                Debug.Log($" - ⛔ No es HexRenderer");
-                continue;
-            }
-
-            Debug.Log($" - ✅ HexRenderer válido: {hex.name}");
-
-            TerrainUtils.SnapToHexCenterXYZ(transform, hex, heightOffset);
-            return true;
-        }
-
-        return false;
+        TerrainUtils.SnapToHexTopFlat(transform, hex, heightOffset);
+        return true;
     }
+
+    Debug.LogWarning($"{name} no encontró hex debajo usando Raycast.");
+    return false;
+}
+
 }

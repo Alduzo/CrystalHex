@@ -22,81 +22,79 @@ public class UnitSelector : MonoBehaviour
     }
 
     private void HandleSelectionInput()
-{
-    if (Input.GetMouseButtonDown(0))
     {
-        Debug.Log("🖱️ Clic izquierdo detectado.");
-
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        Debug.DrawRay(ray.origin, ray.direction * hoverRaycastDistance, Color.yellow, 2f);
-
-        if (Physics.Raycast(ray, out hit, hoverRaycastDistance, unitLayer))
+        if (Input.GetMouseButtonDown(0))
         {
-            Debug.Log($"🎯 Raycast impactó: {hit.collider.name} (Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)})");
+            Debug.Log("🖱️ Clic izquierdo detectado.");
 
-            // Intenta encontrar UnitMover en varias partes de la jerarquía
-            UnitMover clickedUnit = hit.collider.GetComponent<UnitMover>()
-                                   ?? hit.collider.GetComponentInChildren<UnitMover>()
-                                   ?? hit.collider.GetComponentInParent<UnitMover>();
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
 
-            if (clickedUnit != null)
+            Debug.DrawRay(ray.origin, ray.direction * hoverRaycastDistance, Color.yellow, 2f);
+
+            if (Physics.Raycast(ray, out hit, hoverRaycastDistance, unitLayer))
             {
-                Debug.Log($"✅ Unidad con UnitMover encontrada: {clickedUnit.gameObject.name}");
-                SelectUnit(clickedUnit);
-            }
-            else
-            {
-                Debug.LogWarning("⚠️ Raycast impactó algo en unitLayer, pero no encontró UnitMover en la jerarquía.");
-            }
-        }
-        else
-        {
-            Debug.Log("👀 Raycast no impactó ningún objeto en la capa de unidades.");
-            DeselectUnit();
-        }
-    }
+                Debug.Log($"🎯 Raycast impactó: {hit.collider.name} (Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)})");
 
-    if (Input.GetMouseButtonDown(1) && selectedUnit != null)
-    {
-        Debug.Log("🖱️ Clic derecho detectado. Intentando mover unidad seleccionada...");
+                // Intenta encontrar UnitMover en varias partes de la jerarquía
+                UnitMover clickedUnit = hit.collider.GetComponent<UnitMover>()
+                                       ?? hit.collider.GetComponentInChildren<UnitMover>()
+                                       ?? hit.collider.GetComponentInParent<UnitMover>();
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, hoverRaycastDistance, terrainLayer))
-        {
-            HexBehavior hex = hit.collider.GetComponentInParent<HexBehavior>();
-            if (hex != null)
-            {
-                UnitMover mover = selectedUnit.GetComponent<UnitMover>();
-                if (mover != null)
+                if (clickedUnit != null)
                 {
-                    Debug.Log($"🏃 Moviendo unidad a Hex ({hex.coordinates.Q}, {hex.coordinates.R})");
-                    mover.MoveTo(hex);
+                    Debug.Log($"✅ Unidad con UnitMover encontrada: {clickedUnit.gameObject.name}");
+                    SelectUnit(clickedUnit);
                 }
                 else
                 {
-                    Debug.LogWarning("⚠️ Unidad seleccionada no tiene UnitMover.");
+                    Debug.LogWarning("⚠️ Raycast impactó algo en unitLayer, pero no encontró UnitMover en la jerarquía.");
                 }
             }
             else
             {
-                Debug.LogWarning("⚠️ El objeto clickeado no tiene HexBehavior en su jerarquía.");
+                Debug.Log("👀 Raycast no impactó ningún objeto en la capa de unidades.");
+                DeselectUnit();
             }
         }
-        else
+
+        if (Input.GetMouseButtonDown(1) && selectedUnit != null)
         {
-            Debug.Log("❌ Clic derecho no impactó el terreno.");
+            Debug.Log("🖱️ Clic derecho detectado. Intentando mover unidad seleccionada...");
+
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit hit;
+
+            if (Physics.Raycast(ray, out hit, hoverRaycastDistance, terrainLayer))
+            {
+                HexBehavior hex = hit.collider.GetComponentInParent<HexBehavior>();
+                if (hex != null)
+                {
+                    UnitMover mover = selectedUnit.GetComponent<UnitMover>();
+                    if (mover != null)
+                    {
+                        Debug.Log($"🏃 Moviendo unidad a Hex ({hex.coordinates.Q}, {hex.coordinates.R})");
+                        float tileTopY = hex.transform.position.y + hex.GetComponent<HexRenderer>().columnHeight * hex.GetComponent<HexRenderer>().heightScale;
+Vector3 targetPosition = new Vector3(hex.transform.position.x, tileTopY, hex.transform.position.z);
+mover.MoveTo(targetPosition);
+                    }
+                    else
+                    {
+                        Debug.LogWarning("⚠️ Unidad seleccionada no tiene UnitMover.");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("⚠️ El objeto clickeado no tiene HexBehavior en su jerarquía.");
+                }
+            }
+            else
+            {
+                Debug.Log("❌ Clic derecho no impactó el terreno.");
+            }
         }
     }
-}
 
-
-    /// <summary>
-    /// Detects which hex the mouse is currently hovering over and invokes the OnUnitHovered event.
-    /// </summary>
     private void HandleHoverDetection()
     {
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);

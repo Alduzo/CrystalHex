@@ -19,6 +19,8 @@ public static int ChunkSize { get; set; }
     if (config == null)
     {
         Debug.LogError("⚠️ No se encontró ChunkMapGameConfig en Resources.");
+     //   AssignNeighborsForChunk(parent);
+
         return parent;  // Detenemos si no existe
     }
 
@@ -141,29 +143,40 @@ public static int ChunkSize { get; set; }
 }
 
 
-    public static void AssignNeighbors(GameObject chunkRoot)
+    // 🔄 Mejorado y consolidado
+public static void AssignNeighborsFor(HexBehavior behavior)
+{
+    behavior.neighbors.Clear();  // Limpia lista antes de asignar
+
+    var hexData = WorldMapManager.Instance.GetOrGenerateHex(behavior.coordinates);
+    WorldMapManager.Instance.EnsureNeighborsAssigned(hexData);
+
+    foreach (var neighborData in hexData.neighborRefs)
     {
-        HexBehavior[] hexes = chunkRoot.GetComponentsInChildren<HexBehavior>();
-
-        foreach (HexBehavior hex in hexes)
+        Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(neighborData.coordinates);
+        if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
         {
-            hex.neighbors.Clear();
-            foreach (HexBehavior other in hexes)
+            var behaviors = neighborChunk.GetComponentsInChildren<HexBehavior>();
+            foreach (var neighborBehavior in behaviors)
             {
-                if (hex == other) continue;
-
-                int dq = Mathf.Abs(hex.coordinates.Q - other.coordinates.Q);
-                int dr = Mathf.Abs(hex.coordinates.R - other.coordinates.R);
-
-                if ((dq == 1 && dr == 0) || (dq == 0 && dr == 1) || (dq == 1 && dr == 1))
+                if (neighborBehavior.coordinates.Equals(neighborData.coordinates))
                 {
-                    hex.neighbors.Add(other);
+                    behavior.neighbors.Add(neighborBehavior);
+                    break;
                 }
             }
         }
     }
 
+    Debug.Log($"✅ Hex {behavior.coordinates} tiene {behavior.neighbors.Count} vecinos asignados.");
+}
 
+// 📝 Marcar para eliminar en el futuro:
+// - Commentar o eliminar AssignNeighbors(GameObject chunkRoot)
+// - Eliminar método AssignNeighborsForChunk(GameObject chunkRoot) si existe
+
+
+/*
     public static void AssignBehaviorNeighborsFromWorldMap(HexBehavior behavior)
     {
         var hexData = WorldMapManager.Instance.GetOrGenerateHex(behavior.coordinates);
@@ -191,7 +204,7 @@ public static int ChunkSize { get; set; }
         }
     }
 
-
+*/
     private static IEnumerator DelayedPlaceFeature(HexBehavior hex, GameObject prefab)
     {
         yield return new WaitForSeconds(0.1f); // Puedes ajustar el tiempo si sigue fallando
@@ -220,14 +233,43 @@ public static int ChunkSize { get; set; }
         return obj;
     }
 
-public static Vector2Int GetChunkCoordFromWorldPos(Vector3 worldPos)
+public static Vector2Int GetChunkCoordFromHex(HexCoordinates hexCoord)
 {
-    int chunkX = Mathf.FloorToInt(worldPos.x / ChunkSize);
-    int chunkY = Mathf.FloorToInt(worldPos.z / ChunkSize);  // Usa worldPos.z si el eje Y es elevación
+    int chunkX = Mathf.FloorToInt((float)hexCoord.Q / ChunkSize);
+    int chunkY = Mathf.FloorToInt((float)hexCoord.R / ChunkSize);
     return new Vector2Int(chunkX, chunkY);
 }
+/* public static void AssignNeighborsForChunk(GameObject chunkRoot)
+{
+    HexBehavior[] hexes = chunkRoot.GetComponentsInChildren<HexBehavior>();
 
+    foreach (var hex in hexes)
+    {
+        hex.neighbors.Clear();
 
+        var hexData = WorldMapManager.Instance.GetOrGenerateHex(hex.coordinates);
+        WorldMapManager.Instance.EnsureNeighborsAssigned(hexData);
 
+        foreach (var neighborData in hexData.neighborRefs)
+        {
+            Vector2Int neighborChunkCoord = ChunkManager.WorldToChunkCoord(neighborData.coordinates);
+            if (ChunkManager.Instance.loadedChunks.TryGetValue(neighborChunkCoord, out var neighborChunk))
+            {
+                var behaviorList = neighborChunk.GetComponentsInChildren<HexBehavior>();
+                foreach (var other in behaviorList)
+                {
+                    if (other.coordinates.Equals(neighborData.coordinates))
+                    {
+                        hex.neighbors.Add(other);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    Debug.Log($"🧩 Vecinos asignados para Chunk {chunkRoot.name} ({hexes.Length} hexes)");
+}
+
+*/
 }
 

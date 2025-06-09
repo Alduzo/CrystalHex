@@ -41,9 +41,10 @@ public class HexBehavior : MonoBehaviour
     [Header("Crystal Growth")]
     public float growthMultiplier = 1f;
 
-public void Initialize(HexData data)
-{
-    this.coordinates = data.coordinates;
+    public void Initialize(HexData data)
+    {
+        this.coordinates = data.coordinates;
+    // ChunkGenerator.AssignNeighborsFor(this); Si quisieramos llamar AssignNeighbors al inicializar.
 }
 
 
@@ -82,6 +83,7 @@ public void Initialize(HexData data)
     {
         var tickManager = Object.FindFirstObjectByType<TickManager>();
         StartCoroutine(DelayedRegister());
+         ChunkGenerator.AssignNeighborsFor(this);
 
     }
 

@@ -5,7 +5,7 @@ public class AutoPlaceOnTerrain : MonoBehaviour
 {
     [SerializeField] private string terrainLayerName = "Terrain";
     [SerializeField] private float heightOffset = 0.25f;
-    [SerializeField] private float placementDetectionRadius = 5.0f;
+    [SerializeField] private float placementDetectionRadius = .750f;
     [SerializeField] private bool debug = false;
 
     public bool TryPlace()

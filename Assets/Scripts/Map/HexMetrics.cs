@@ -11,15 +11,16 @@ public static class HexMetrics
     public const float horizontalTerraceStepSize = 1f / terraceSteps;
     public const float verticalTerraceStepSize = 1f / (terracesPerSlope + 1);
 
-    public static Vector3[] corners = {
-        new Vector3(0f, 0f, outerRadius),
-        new Vector3(innerRadius, 0f, 0.5f * outerRadius),
-        new Vector3(innerRadius, 0f, -0.5f * outerRadius),
-        new Vector3(0f, 0f, -outerRadius),
-        new Vector3(-innerRadius, 0f, -0.5f * outerRadius),
-        new Vector3(-innerRadius, 0f, 0.5f * outerRadius),
-        new Vector3(0f, 0f, outerRadius) // Repetido para facilitar cálculos
-    };
+   public static Vector3[] corners = {
+    new Vector3(outerRadius, 0f, 0f),
+    new Vector3(0.5f * outerRadius, 0f, innerRadius),
+    new Vector3(-0.5f * outerRadius, 0f, innerRadius),
+    new Vector3(-outerRadius, 0f, 0f),
+    new Vector3(-0.5f * outerRadius, 0f, -innerRadius),
+    new Vector3(0.5f * outerRadius, 0f, -innerRadius),
+    new Vector3(outerRadius, 0f, 0f) // Repetido para cerrar el ciclo
+};
+
 
     public static Vector3 TerraceLerp(Vector3 a, Vector3 b, int step)
     {
@@ -54,14 +55,26 @@ public static class HexMetrics
     }
 
     public static Vector3 Perturb(Vector3 position)
-{
-    float sampleX = position.x * 0.1f + 100f;
-    float sampleZ = position.z * 0.1f + 100f;
-    float offsetX = (Mathf.PerlinNoise(sampleX, sampleZ) * 2f - 1f) * 0.1f;  // Ajusta magnitud
-    float offsetZ = (Mathf.PerlinNoise(sampleZ, sampleX) * 2f - 1f) * 0.1f;
-    position.x += offsetX;
-    position.z += offsetZ;
-    return position;
-}
+    {
+        float sampleX = position.x * 0.1f + 100f;
+        float sampleZ = position.z * 0.1f + 100f;
+        float offsetX = (Mathf.PerlinNoise(sampleX, sampleZ) * 2f - 1f) * 0.1f;  // Ajusta magnitud
+        float offsetZ = (Mathf.PerlinNoise(sampleZ, sampleX) * 2f - 1f) * 0.1f;
+        position.x += offsetX;
+        position.z += offsetZ;
+        return position;
+    }
+    public static Color GetColorByTerrainType(TerrainType type)
+    {
+        switch (type)
+        {
+            case TerrainType.Plains: return Color.green;
+            case TerrainType.Mountain: return Color.gray;
+            // Agrega más casos según necesidad
+            default: return Color.magenta;  // O un color por defecto
+        }
+    }
+
+
 
 }
